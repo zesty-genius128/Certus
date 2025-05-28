@@ -1,0 +1,4 @@
+python-dotenv
+requests
+model-context-protocol
+# Add other libraries as you need them, e.g., for more complex parsing
