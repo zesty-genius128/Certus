@@ -68,10 +68,7 @@ This creates the proper config file at `~/Library/Application Support/Claude/cla
   "mcpServers": {
     "enhanced-medication-info": {
       "command": "python3",
-      "args": ["/path/to/your/enhanced_mcp_server.py"],
-      "env": {
-        "PYTHONPATH": "/path/to/your/med_info_mcp_project"
-      }
+      "args": ["/path/to/your/enhanced_mcp_server.py"]
     }
   }
 }
