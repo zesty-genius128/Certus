@@ -69,16 +69,13 @@ def create_config():
     os.makedirs(config_dir, exist_ok=True)
     
     config = {
-        "mcpServers": {
-            "enhanced-medication-info": {
-                "command": "python3",
-                "args": ["/Users/adityadamerla/Documents/GitHub/med_info_mcp_project/enhanced_mcp_server.py"],
-                "env": {
-                    "PYTHONPATH": "/Users/adityadamerla/Documents/GitHub/med_info_mcp_project"
-                }
-            }
-        }
+  "mcpServers": {
+    "enhanced-medication-info": {
+      "command": "python3",
+      "args": ["/path/to/your/enhanced_mcp_server.py"]
     }
+  }
+}
     
     try:
         with open(config_path, 'w') as f:
