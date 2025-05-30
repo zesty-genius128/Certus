@@ -7,3 +7,4 @@ __pycache__/
 venv/
 *.DS_Store
 .venv/
+med_info_mcp_project.code-workspace

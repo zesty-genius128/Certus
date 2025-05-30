@@ -1,4 +1,10 @@
-python-dotenv
-requests
-model-context-protocol
-# Add other libraries as you need them, e.g., for more complex parsing
+easyocr==1.7.2
+mcp==1.9.2
+numpy==2.2.6
+openai==1.82.1
+opencv_python_headless==4.11.0.86
+Pillow==11.2.1
+protobuf==6.31.1
+python-dotenv==1.1.0
+Requests==2.32.3
+thefuzz==0.22.1
