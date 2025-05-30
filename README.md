@@ -114,15 +114,22 @@ This creates the proper config file at `~/Library/Application Support/Claude/cla
 
 ```
 med_info_mcp_project/
-├── enhanced_mcp_server.py      # Main MCP server (production)
-├── openfda_client.py           # OpenFDA API client
-├── find_claude_config.py       # Claude Desktop setup helper
-├── test_server.py              # Complete functionality tests
-├── test_mcp_connection.py      # MCP connection diagnostics
+├── data/                       # Data files (e.g., images for testing)
+├── tests/                      # Unit and integration tests
+│   ├── api_test.py             # OCR Pipeline and OpenAI/Gemini API testing
+│   ├── test_mcp_connection.py  # MCP connection tests
+│   ├── test_server.py          # Comprehensive server tests
+│   └── test_shortage.py        # Specific shortage endpoint tests
+├── __init__.py                 # Allows directory to be treated as a package
+├── .env                        # Environment variables template
+├── .gitignore                  # Specifies intentionally untracked files
 ├── endpoint_test.py            # OpenFDA endpoint tests
+├── enhanced_mcp_server.py      # Main MCP server (production)
+├── find_claude_config.py       # Claude Desktop setup helper
+├── mcp_med_info_server.py      # Alternative MCP server (if applicable)
+├── openfda_client.py           # OpenFDA API client
 ├── requirements.txt            # Python dependencies
-├── .env.example               # Environment variables template
-└── README.md                  # This file
+└── README.md                   # This file
 ```
 
 ## API Endpoints Used
