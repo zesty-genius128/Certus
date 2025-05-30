@@ -157,8 +157,8 @@ def perform_ocr_openai(image_path: str) -> Union[str, None]:
             print("OpenAI OCR successful.")
             # Remove markdown code block fences if present
             if extracted_text.startswith("```") and extracted_text.endswith("```"):
-                extracted_text = re.sub(r'^```[a-zA-Z]*\n', '', extracted_text) # Remove opening fence with optional language
-                extracted_text = re.sub(r'\n```$', '', extracted_text) # Remove closing fence
+                extracted_text = re.sub(r'^```[a-zA-Z]*\n', '', extracted_text) 
+                extracted_text = re.sub(r'\n```$', '', extracted_text) 
                 extracted_text = extracted_text.strip()
             return extracted_text
         else:
@@ -295,11 +295,11 @@ def get_document_details_from_bluehive(ocr_text: str, user_question: str, bluehi
 
 # --- MCP Client Function ---
 async def get_detailed_med_info_via_mcp(
-    medication_names: List[str], # Changed to List[str] for clarity, will call dummy tool
+    medication_names: List[str], 
     mcp_server_script_path: str 
 ) -> Dict[str, Any]:
     """
-    Calls the MCP server's dummy tool.
+    Calls the MCP server's tool.
     """
     mcp_server_command_executable = "python3" 
     mcp_server_command_args = [mcp_server_script_path]
@@ -315,47 +315,59 @@ async def get_detailed_med_info_via_mcp(
 
     print(f"\nMCP Client: Attempting to start MCP server with: {mcp_server_command_executable} {' '.join(mcp_server_command_args)} in CWD: {project_root}")
 
+    actual_client_session: Union[ClientSession, None] = None 
     try:
-        # stdio_client should yield the ClientSession directly
-        async with stdio_client(server_params) as session: 
-            if not isinstance(session, ClientSession):
-                 # This safeguard is important. If the server fails to start correctly,
-                 # 'session' might not be what we expect.
-                 print(f"MCP Client: Error - stdio_client did not yield a ClientSession, got {type(session)}")
-                 # Populate error for all requested meds if session is not valid
-                 for drug_name in medication_names: # Use medication_names if calling dummy tool for each
-                     all_med_profiles[drug_name] = {"error": f"MCP session invalid type: {type(session)}", "details": "MCP server connection failed."}
+        async with stdio_client(server_params) as yielded_value:
+            # --- DEBUGGING: Print type and content of yielded_value ---
+            print(f"MCP Client: stdio_client yielded type: {type(yielded_value)}")
+            if isinstance(yielded_value, tuple):
+                print(f"MCP Client: stdio_client yielded a tuple with {len(yielded_value)} elements.")
+                for i, item in enumerate(yielded_value):
+                    print(f"  Tuple item {i}: type={type(item)}, value={str(item)[:200]}...") # Print first 200 chars of str
+                    if isinstance(item, ClientSession):
+                        actual_client_session = item
+                        print(f"  Tuple item {i} IS a ClientSession.")
+            elif isinstance(yielded_value, ClientSession):
+                actual_client_session = yielded_value
+                print("MCP Client: stdio_client yielded ClientSession directly.")
+            else:
+                print(f"MCP Client: Error - stdio_client did not yield a ClientSession or a discoverable tuple. Got: {type(yielded_value)}")
+                for drug_name in medication_names:
+                    all_med_profiles[drug_name] = {"error": f"MCP session invalid type from stdio_client: {type(yielded_value)}", "details": "MCP server connection failed."}
+                return all_med_profiles
+
+            if not isinstance(actual_client_session, ClientSession):
+                 print(f"MCP Client: Error - could not obtain a valid ClientSession. Last type checked: {type(actual_client_session)}")
+                 for drug_name in medication_names:
+                     all_med_profiles[drug_name] = {"error": f"MCP session not obtained. Last type: {type(actual_client_session)}", "details": "MCP server connection failed."}
                  return all_med_profiles
+            # --- END DEBUGGING ---
 
-            print("MCP Client: Connected to subprocess MCP server and received ClientSession.")
+            print("MCP Client: Connection established with ClientSession. Proceeding to call tool...")
             
-            # For testing, call the dummy tool once, or for each "medication" if you want to simulate
             test_input_text = "Hello from MCP Client"
-            if not medication_names: # If no meds, just call dummy tool once for testing connection
+            if not medication_names: 
                 medication_names_to_test_dummy = [test_input_text]
-            else: # If meds were parsed, use the first one as input to dummy tool for now
-                medication_names_to_test_dummy = [medication_names[0]]
+            else: 
+                medication_names_to_test_dummy = medication_names 
 
 
-            for test_name in medication_names_to_test_dummy: # Loop through a test list
+            for test_name in medication_names_to_test_dummy: 
                 print(f"MCP Client: Calling MCP tool 'simple_test_tool' with input: '{test_name}'...")
                 try:
-                    profile = await session.use_tool( 
-                        "simple_test_tool", # Call the dummy tool
+                    profile = await actual_client_session.use_tool( 
+                        "simple_test_tool", 
                         parameters={
-                            "input_text": test_name, # Parameter name from dummy tool
+                            "input_text": test_name, 
                         }
                     )
-                    # Store result using a generic key or the test_name
-                    all_med_profiles[test_name if test_name != test_input_text else "dummy_tool_test"] = profile 
+                    all_med_profiles[test_name] = profile 
                 except Exception as e_tool:
                     print(f"MCP Client: Error calling 'simple_test_tool' for '{test_name}': {e_tool}")
-                    all_med_profiles[test_name if test_name != test_input_text else "dummy_tool_test"] = {"error": str(e_tool), "details": "Failed to call simple_test_tool."}
+                    all_med_profiles[test_name] = {"error": str(e_tool), "details": "Failed to call simple_test_tool."}
     
     except Exception as e_connect:
         print(f"MCP Client: Critical error starting or connecting to MCP server: {e_connect}")
-        # This block catches errors during stdio_client setup or if the server subprocess crashes badly.
-        # Populate error for all originally requested meds if connection fails
         error_payload = {"error": str(e_connect), "details": "MCP server connection/startup failed."}
         if not medication_names:
             all_med_profiles["dummy_tool_test_connection_error"] = error_payload
@@ -529,27 +541,16 @@ def main_pipeline(ocr_method_choice: str, image_file_path: str):
                 extracted_medications = parse_meds_from_bluehive_response(bluehive_content)
     else:
         print("No valid result returned from BlueHive API.")
-
-    # --- Step 4: MCP Server Call for Detailed Medication Info ---
-    # For this test, we will always try to call the dummy tool, even if no meds are extracted,
-    # to ensure the MCP communication itself is working.
-    # If extracted_medications is empty, we'll pass a default test string.
-    
-    # If you want to *only* call if meds are found, uncomment the next line and indent the block:
-    # if extracted_medications: 
     
     print("\n--- Step 4: Fetching Info via MCP Server (using dummy tool for this test) ---")
     project_root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    # Make sure this points to the mcp_med_info_server.py with the DUMMY tool
-    mcp_server_script_name = "mcp_med_info_server.py" # Ensure this is the one with the dummy tool
+    mcp_server_script_name = "mcp_med_info_server.py" 
     mcp_server_full_path = os.path.join(project_root_dir, mcp_server_script_name)
     
     if not os.path.exists(mcp_server_full_path):
         print(f"MCP Client: ERROR - MCP server script not found at: {mcp_server_full_path}")
     else:
-        # Use the extracted meds if available, otherwise a default test list for the dummy tool
-        # For the dummy tool, we just need some strings to pass as "input_text"
-        dummy_tool_inputs = extracted_medications if extracted_medications else ["TestInput1", "TestInput2"]
+        dummy_tool_inputs = extracted_medications if extracted_medications else ["TestInput1_NoMedsFound", "TestInput2_NoMedsFound"]
 
         detailed_med_infos = asyncio.run(
             get_detailed_med_info_via_mcp(dummy_tool_inputs, mcp_server_full_path)
@@ -560,12 +561,6 @@ def main_pipeline(ocr_method_choice: str, image_file_path: str):
             print(json.dumps(profile_data, indent=2))
             print("-" * 20)
             
-    # This part is now covered by the dummy tool call above for testing purposes
-    # elif bluehive_result and not (isinstance(bluehive_result, dict) and "error" in bluehive_result):
-    #     print("\nNo medication names parsed from BlueHive response to query MCP server.")
-    # else:
-    #     print("\nSkipping MCP server call due to BlueHive API error or no medications found.")
-
     print("\n--- Full Analysis Complete ---")
 
 if __name__ == "__main__":
@@ -618,4 +613,3 @@ if __name__ == "__main__":
 
     print(f"Proceeding with OCR method: {args.method}")
     main_pipeline(ocr_method_choice=args.method, image_file_path=args.image_path)
-

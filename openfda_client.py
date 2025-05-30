@@ -14,7 +14,7 @@ def fetch_drug_label_info(drug_identifier: str, identifier_type: str = "openfda.
     """
     Fetches drug labeling information from openFDA.
     """
-    print(f"openFDA Client: Fetching label info for: '{drug_identifier}' using field '{identifier_type}'")
+    print(f"openFDA Client: Fetching label info for: {drug_identifier} using field {identifier_type}")
     params = {
         'search': f'{identifier_type}:"{drug_identifier}"',
         'limit': 1
@@ -29,10 +29,10 @@ def fetch_drug_label_info(drug_identifier: str, identifier_type: str = "openfda.
         if data.get("results"):
             return data["results"][0]
         else:
-            print(f"openFDA Client: No label results found for '{drug_identifier}' with type '{identifier_type}'.")
+            print(f"openFDA Client: No label results found for '{drug_identifier}' with type '{identifier_type}'")
             return {"error": f"No label information found for '{drug_identifier}' using type '{identifier_type}'"}
     except requests.exceptions.Timeout:
-        print(f"openFDA Client: Timeout fetching drug label info for '{drug_identifier}'.")
+        print(f"openFDA Client: Timeout fetching drug label info for {drug_identifier}")
         return {"error": "API request timed out"}
     except requests.exceptions.HTTPError as e:
         print(f"openFDA Client: HTTP Error fetching drug label info: {e.response.status_code} for URL: {e.request.url}")
@@ -41,23 +41,28 @@ def fetch_drug_label_info(drug_identifier: str, identifier_type: str = "openfda.
         print(f"openFDA Client: Error fetching drug label info: {e}")
         return {"error": f"API request failed: {e}"}
     except json.JSONDecodeError:
-        print("openFDA Client: Error decoding JSON from drug label API.")
+        print("openFDA Client: Error decoding JSON from drug label API")
         return {"error": "Failed to decode JSON response from label API"}
 
-def fetch_drug_shortage_info(drug_identifier_for_shortage: str) -> Dict[str, Any]:
+def fetch_drug_shortage_info(drug_identifier: str) -> Dict[str, Any]:
     """
     Fetches drug shortage information from openFDA.
-    Searches primarily by active_ingredient or a general term match in drug_name.
+    Searches primarily by active_ingredient or drug_name.
     """
-    # Using a more general search that includes active_ingredient and drug_name
-    # The openFDA shortage search can be sensitive.
-    # Sometimes searching for the exact "drug_name" as listed in shortages, or "active_ingredient" works.
-    print(f"openFDA Client: Fetching shortage info for search term: '{drug_identifier_for_shortage}'")
-    search_term = f'(active_ingredient:"{drug_identifier_for_shortage}" OR drug_name:"{drug_identifier_for_shortage}")'
+    print(f"openFDA Client: Fetching shortage info for: {drug_identifier}")
+    # Try a focused search on active_ingredient first, then broaden if needed or combine
+    # Using a general search term that might cover various fields where the drug name appears.
+    # The shortage API might be more sensitive; sometimes simpler queries work better.
+    # Let's try searching for the identifier in the 'active_ingredient' field,
+    # as this is often how shortages are cataloged.
+    search_term = f'active_ingredient:"{drug_identifier}"'
+    # Alternative or additional search: f'drug_name:"{drug_identifier}"'
+    # If the above doesn't work well, you might need to experiment with how openFDA indexes shortage data.
+    # For example, searching for the exact drug_name or even NDC if available.
 
     params = {
         'search': search_term,
-        'limit': 5 # Get a few results in case of multiple formulations
+        'limit': 5
     }
     if OPENFDA_API_KEY:
         params['api_key'] = OPENFDA_API_KEY
@@ -72,29 +77,28 @@ def fetch_drug_shortage_info(drug_identifier_for_shortage: str) -> Dict[str, Any
                 shortages.append({
                     "drug_name_reported": item.get("drug_name", "N/A"),
                     "status": item.get("status", "N/A"),
-                    "reason": item.get("reason_for_shortage", "N/A"), # Corrected field name
+                    "reason": item.get("reason_for_shortage", "N/A"),
                     "estimated_duration": item.get("estimated_shortage_duration", "N/A"),
                     "information_source": item.get("information_source", "N/A"),
-                    "available_date": item.get("estimated_resupply_date", "N/A"), # Corrected field name
+                    "available_date": item.get("estimated_resupply_date", "N/A"),
                     "therapeutic_categories": item.get("therapeutic_category_terms", [])
                 })
-            return {"shortages": shortages} if shortages else {"status": f"No active shortage entries found for '{drug_identifier_for_shortage}' with search: {search_term}"}
+            return {"shortages": shortages} if shortages else {"status": f"No active shortage found for '{drug_identifier}' matching search: {search_term}"}
         else:
-            # This means the API call was successful but returned no results for the search term
-            print(f"openFDA Client: No shortage results returned by API for '{drug_identifier_for_shortage}' with search: {search_term}")
-            return {"status": f"No shortage information found (or not currently in shortage) for '{drug_identifier_for_shortage}'"}
+            print(f"openFDA Client: No shortage results found for '{drug_identifier}' with search: {search_term}")
+            return {"status": f"No shortage information found or not in shortage for '{drug_identifier}' with search: {search_term}"}
     except requests.exceptions.Timeout:
-        print(f"openFDA Client: Timeout fetching drug shortage info for '{drug_identifier_for_shortage}'.")
+        print(f"openFDA Client: Timeout fetching drug shortage info for {drug_identifier}")
         return {"error": "API request timed out"}
     except requests.exceptions.HTTPError as e:
-        # This will now catch the 404 if the search term itself is malformed or endpoint issue
         print(f"openFDA Client: HTTP Error fetching drug shortage info: {e.response.status_code} for URL: {e.request.url}")
+        # Include response text for 404s to see if there's more info from openFDA
         return {"error": f"API request failed with status {e.response.status_code}: {e.response.text}"}
     except requests.exceptions.RequestException as e:
         print(f"openFDA Client: Error fetching drug shortage info: {e}")
         return {"error": f"API request failed: {e}"}
     except json.JSONDecodeError:
-        print("openFDA Client: Error decoding JSON from drug shortage API.")
+        print("openFDA Client: Error decoding JSON from drug shortage API")
         return {"error": "Failed to decode JSON response from shortage API"}
 
 if __name__ == '__main__':
@@ -105,11 +109,11 @@ if __name__ == '__main__':
     else: print("openFDA Client Test: API Key NOT loaded.")
 
     print("\n--- Testing openFDA Client Directly ---")
-    drug_to_test_label = "Lisinopril"
-    identifier_for_label_search = "openfda.generic_name" # More reliable for generic names
+    drug_to_test = "Lisinopril"
+    identifier_for_label = "openfda.generic_name"
 
-    print(f"\n--- Testing {drug_to_test_label} Label Info (using {identifier_for_label_search}) ---")
-    label_data = fetch_drug_label_info(drug_to_test_label, identifier_type=identifier_for_label_search)
+    print(f"\n--- Testing {drug_to_test} Label Info (using {identifier_for_label}) ---")
+    label_data = fetch_drug_label_info(drug_to_test, identifier_type=identifier_for_label)
     if label_data and not label_data.get("error") and "openfda" in label_data:
         print(f"  Manufacturer: {label_data['openfda'].get('manufacturer_name', ['N/A'])[0]}")
         print(f"  Brand Names: {label_data['openfda'].get('brand_name', [])}")
@@ -117,19 +121,11 @@ if __name__ == '__main__':
     else:
         print(f"  Label info error or not found: {label_data.get('error', 'Unknown issue')}")
 
-    # For shortage, we pass the name we want to search for.
-    # The function will try searching it as active_ingredient or drug_name.
-    drug_for_shortage_test_1 = "Lisinopril"
-    print(f"\n--- Testing {drug_for_shortage_test_1} Shortage Info ---")
-    shortage_data_1 = fetch_drug_shortage_info(drug_for_shortage_test_1)
-    print(json.dumps(shortage_data_1, indent=2))
+    print(f"\n--- Testing {drug_to_test} Shortage Info ---")
+    shortage_data = fetch_drug_shortage_info(drug_to_test) # Lisinopril is an active ingredient
+    print(json.dumps(shortage_data, indent=2))
 
-    drug_for_shortage_test_2 = "Amoxicillin"
-    print(f"\n--- Testing {drug_for_shortage_test_2} Shortage Info ---")
-    shortage_data_2 = fetch_drug_shortage_info(drug_for_shortage_test_2)
-    print(json.dumps(shortage_data_2, indent=2))
-
-    # You might want to find a drug currently listed on FDA's shortage page
-    # and test with its exact active ingredient name to confirm the query.
-    # e.g., if "DrugXyz (active ingredient: xyzamine)" is in shortage:
-    # shortage_data_known = fetch_drug_shortage_info("xyzamine")
+    drug_possibly_in_shortage = "Amoxicillin" # Amoxicillin is an active ingredient
+    print(f"\n--- Testing {drug_possibly_in_shortage} Shortage Info ---")
+    shortage_data_amox = fetch_drug_shortage_info(drug_possibly_in_shortage)
+    print(json.dumps(shortage_data_amox, indent=2))
