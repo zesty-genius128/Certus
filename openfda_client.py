@@ -210,7 +210,254 @@ def search_drug_recalls(drug_identifier: str) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Error searching recalls: {e}"}
 
-if __name__ == '__main__':
+def analyze_drug_market_trends(drug_identifier: str, months_back: int = 12) -> Dict[str, Any]:
+    """
+    Analyze market trends and shortage patterns for a specific drug over time.
+    Provides trend analysis, frequency calculations, and market insights.
+    """
+    print(f"openFDA Client: Analyzing market trends for: {drug_identifier} over {months_back} months")
+    
+    # Clean the drug identifier
+    clean_identifier = drug_identifier.lower().strip()
+    
+    # Get comprehensive shortage data for analysis
+    params = {
+        'search': f'"{clean_identifier}"',
+        'limit': 100  # Get more records for trend analysis
+    }
+    if OPENFDA_API_KEY:
+        params['api_key'] = OPENFDA_API_KEY
+
+    try:
+        response = requests.get(DRUG_SHORTAGES_ENDPOINT, params=params, timeout=20)
+        response.raise_for_status()
+        data = response.json()
+        
+        if not data.get("results"):
+            return {
+                "drug_analyzed": drug_identifier,
+                "analysis_period_months": months_back,
+                "trend_summary": "No shortage data found for trend analysis",
+                "market_insights": {
+                    "shortage_frequency": "None",
+                    "risk_level": "Low",
+                    "recommendation": "No historical shortage patterns detected"
+                }
+            }
+        
+        # Filter and analyze relevant records
+        relevant_records = []
+        for item in data["results"]:
+            drug_name = item.get("generic_name", "").lower()
+            proprietary_name = item.get("proprietary_name", "").lower()
+            
+            if (clean_identifier in drug_name or 
+                clean_identifier in proprietary_name or
+                any(clean_identifier in name.lower() for name in item.get("openfda", {}).get("generic_name", []))):
+                relevant_records.append(item)
+        
+        if not relevant_records:
+            return {
+                "drug_analyzed": drug_identifier,
+                "analysis_period_months": months_back,
+                "trend_summary": "No relevant shortage records found",
+                "market_insights": {
+                    "shortage_frequency": "None",
+                    "risk_level": "Low",
+                    "recommendation": "No shortage history for this drug"
+                }
+            }
+        
+        # Analyze trends and patterns
+        status_counts = {}
+        companies_affected = set()
+        reasons = []
+        recent_activity = 0
+        
+        for record in relevant_records:
+            status = record.get("status", "Unknown")
+            status_counts[status] = status_counts.get(status, 0) + 1
+            
+            company = record.get("company_name", "Unknown")
+            if company != "Unknown":
+                companies_affected.add(company)
+            
+            reason = record.get("shortage_reason", "")
+            if reason and reason != "N/A":
+                reasons.append(reason)
+            
+            # Count recent activity (rough estimate based on current status)
+            if status in ["Current", "To Be Discontinued"]:
+                recent_activity += 1
+        
+        # Calculate risk assessment
+        total_records = len(relevant_records)
+        current_shortages = status_counts.get("Current", 0)
+        resolved_shortages = status_counts.get("Resolved", 0)
+        
+        if current_shortages > 0:
+            risk_level = "High"
+        elif total_records > 5:
+            risk_level = "Medium"
+        else:
+            risk_level = "Low"
+        
+        # Generate insights
+        frequency_description = f"{total_records} shortage events found"
+        if total_records > 10:
+            frequency_description += " (High frequency)"
+        elif total_records > 3:
+            frequency_description += " (Moderate frequency)"
+        else:
+            frequency_description += " (Low frequency)"
+        
+        # Top reasons analysis
+        reason_summary = "Not specified"
+        if reasons:
+            from collections import Counter
+            top_reasons = Counter(reasons).most_common(3)
+            reason_summary = "; ".join([reason for reason, count in top_reasons])
+        
+        return {
+            "drug_analyzed": drug_identifier,
+            "analysis_period_months": months_back,
+            "total_shortage_events": total_records,
+            "trend_summary": f"Found {total_records} shortage records affecting {len(companies_affected)} companies",
+            "status_breakdown": status_counts,
+            "market_insights": {
+                "shortage_frequency": frequency_description,
+                "risk_level": risk_level,
+                "companies_affected": len(companies_affected),
+                "recent_activity": recent_activity,
+                "common_reasons": reason_summary,
+                "recommendation": f"Risk level: {risk_level}. Monitor {current_shortages} current shortage(s)." if current_shortages > 0 else f"Risk level: {risk_level}. {resolved_shortages} resolved shortage(s) in history."
+            },
+            "detailed_records": relevant_records[:5]  # Include top 5 for detailed analysis
+        }
+        
+    except Exception as e:
+        return {
+            "drug_analyzed": drug_identifier,
+            "error": f"Failed to analyze market trends: {e}",
+            "recommendation": "Unable to perform trend analysis due to API issues"
+        }
+
+def batch_drug_analysis(drug_list: List[str], include_trends: bool = False) -> Dict[str, Any]:
+    """
+    Perform comprehensive analysis on a batch of drugs for formulary management.
+    Provides shortage status, recall information, and risk assessment for multiple drugs.
+    """
+    print(f"openFDA Client: Starting batch analysis for {len(drug_list)} drugs")
+    
+    if len(drug_list) > 25:
+        return {
+            "error": "Batch size too large. Please limit to 25 drugs per batch.",
+            "recommendation": "Split your list into smaller batches for better performance"
+        }
+    
+    results = {
+        "batch_summary": {
+            "total_drugs_analyzed": len(drug_list),
+            "analysis_timestamp": "2025-06-02",  # Current date
+            "drugs_with_shortages": 0,
+            "drugs_with_recalls": 0,
+            "high_risk_drugs": 0,
+            "total_shortage_events": 0
+        },
+        "individual_analyses": {},
+        "risk_assessment": {
+            "high_risk": [],
+            "medium_risk": [],
+            "low_risk": []
+        },
+        "formulary_recommendations": []
+    }
+    
+    for drug in drug_list:
+        print(f"openFDA Client: Analyzing {drug}...")
+        
+        # Get basic drug profile
+        drug_analysis = {
+            "drug_name": drug,
+            "shortage_status": "Unknown",
+            "recall_status": "Unknown",
+            "risk_level": "Unknown",
+            "details": {}
+        }
+        
+        try:
+            # Check shortages
+            shortage_info = fetch_drug_shortage_info(drug)
+            if shortage_info.get("shortages"):
+                drug_analysis["shortage_status"] = f"Found {len(shortage_info['shortages'])} shortage(s)"
+                results["batch_summary"]["drugs_with_shortages"] += 1
+                results["batch_summary"]["total_shortage_events"] += len(shortage_info["shortages"])
+                
+                # Count current vs resolved
+                current_shortages = sum(1 for s in shortage_info["shortages"] if s.get("status") == "Current")
+                if current_shortages > 0:
+                    drug_analysis["risk_level"] = "High"
+                    results["risk_assessment"]["high_risk"].append(drug)
+                    results["batch_summary"]["high_risk_drugs"] += 1
+                else:
+                    drug_analysis["risk_level"] = "Medium"
+                    results["risk_assessment"]["medium_risk"].append(drug)
+                
+                drug_analysis["details"]["shortage_summary"] = {
+                    "total_records": len(shortage_info["shortages"]),
+                    "current_shortages": current_shortages,
+                    "companies_affected": list(set(s.get("company_name", "Unknown") for s in shortage_info["shortages"][:5]))
+                }
+            else:
+                drug_analysis["shortage_status"] = "No current shortages"
+                drug_analysis["risk_level"] = "Low"
+                results["risk_assessment"]["low_risk"].append(drug)
+            
+            # Check recalls
+            recall_info = search_drug_recalls(drug)
+            if recall_info.get("recalls"):
+                drug_analysis["recall_status"] = f"Found {len(recall_info['recalls'])} recall(s)"
+                results["batch_summary"]["drugs_with_recalls"] += 1
+                drug_analysis["details"]["recall_summary"] = {
+                    "total_recalls": len(recall_info["recalls"]),
+                    "recent_recalls": [r.get("product_description", "Unknown")[:50] + "..." for r in recall_info["recalls"][:2]]
+                }
+            else:
+                drug_analysis["recall_status"] = "No recent recalls"
+            
+            # Add trend analysis if requested
+            if include_trends:
+                trend_info = analyze_drug_market_trends(drug, months_back=6)
+                drug_analysis["details"]["trend_analysis"] = {
+                    "total_shortage_events": trend_info.get("total_shortage_events", 0),
+                    "risk_level": trend_info.get("market_insights", {}).get("risk_level", "Unknown"),
+                    "recommendation": trend_info.get("market_insights", {}).get("recommendation", "No trend data available")
+                }
+            
+        except Exception as e:
+            drug_analysis["error"] = f"Analysis failed: {e}"
+            drug_analysis["risk_level"] = "Unknown"
+        
+        results["individual_analyses"][drug] = drug_analysis
+    
+    # Generate formulary recommendations
+    high_risk_count = len(results["risk_assessment"]["high_risk"])
+    total_drugs = len(drug_list)
+    
+    if high_risk_count > total_drugs * 0.3:  # More than 30% high risk
+        results["formulary_recommendations"].append("HIGH ALERT: Over 30% of analyzed drugs show shortage risks")
+        results["formulary_recommendations"].append("Recommend immediate alternative sourcing for high-risk medications")
+    
+    if results["batch_summary"]["drugs_with_shortages"] > 0:
+        results["formulary_recommendations"].append(f"Monitor {results['batch_summary']['drugs_with_shortages']} drugs with active shortage concerns")
+    
+    if len(results["risk_assessment"]["low_risk"]) == total_drugs:
+        results["formulary_recommendations"].append("Good news: No significant shortage risks detected in this drug set")
+    
+    results["formulary_recommendations"].append(f"Analyzed {total_drugs} drugs with {results['batch_summary']['total_shortage_events']} total shortage events")
+    
+    print(f"openFDA Client: Completed batch analysis for {len(drug_list)} drugs")
+    return results
     from dotenv import load_dotenv
     load_dotenv()
     OPENFDA_API_KEY = os.environ.get("OPENFDA_API_KEY")
