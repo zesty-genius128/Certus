@@ -2,7 +2,7 @@
 import os
 from dotenv import load_dotenv
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import asyncio
 import requests
 import json
@@ -19,8 +19,8 @@ load_dotenv()
 # Initialize FastMCP Application
 mcp_app = FastMCP(
     name="EnhancedMedicationInformationService",
-    version="0.2.0",
-    description="An MCP server that provides comprehensive medication information using openFDA with WORKING shortage data."
+    version="0.3.0",
+    description="An MCP server that provides comprehensive medication information using openFDA with WORKING shortage data and advanced analytics."
 )
 
 def get_medication_profile_logic(drug_identifier: str, identifier_type: str) -> Dict[str, Any]:
@@ -270,6 +270,71 @@ async def get_drug_label_only(
         "reliability": "High - this endpoint is working correctly"
     }
 
+@mcp_app.tool()
+async def analyze_drug_market_trends(
+    drug_name: str,
+    months_back: int = 12
+) -> Dict[str, Any]:
+    """
+    Analyzes market trends and shortage patterns for a specific drug over time.
+    Provides comprehensive trend analysis, frequency calculations, and market insights.
+    
+    Args:
+        drug_name: The drug name to analyze for market trends
+        months_back: Number of months to analyze (default: 12)
+    
+    Returns:
+        A dictionary containing trend analysis, risk assessment, and market insights.
+    """
+    print(f"MCP Server: Analyzing market trends for: {drug_name} over {months_back} months", file=sys.stderr)
+    sys.stderr.flush()
+    
+    loop = asyncio.get_event_loop()
+    trend_analysis = await loop.run_in_executor(None, openfda_client.analyze_drug_market_trends, drug_name, months_back)
+    
+    return {
+        "drug_analyzed": drug_name,
+        "analysis_period": f"{months_back} months",
+        "trend_data": trend_analysis,
+        "data_source": "openFDA Drug Shortages API - Historical Analysis",
+        "analysis_type": "Market Trends & Risk Assessment"
+    }
+
+@mcp_app.tool()
+async def batch_drug_analysis(
+    drug_list: List[str],
+    include_trends: bool = False
+) -> Dict[str, Any]:
+    """
+    Performs comprehensive analysis on multiple drugs for formulary management.
+    Provides shortage status, recall information, and risk assessment for drug lists.
+    
+    Args:
+        drug_list: List of drug names to analyze (max 25 drugs)
+        include_trends: Whether to include trend analysis for each drug (default: False)
+    
+    Returns:
+        A dictionary containing batch analysis results, risk assessment, and formulary recommendations.
+    """
+    print(f"MCP Server: Starting batch analysis for {len(drug_list)} drugs", file=sys.stderr)
+    sys.stderr.flush()
+    
+    if len(drug_list) > 25:
+        return {
+            "error": "Batch size too large. Maximum 25 drugs per batch.",
+            "recommendation": "Split your drug list into smaller batches for optimal performance."
+        }
+    
+    loop = asyncio.get_event_loop()
+    batch_results = await loop.run_in_executor(None, openfda_client.batch_drug_analysis, drug_list, include_trends)
+    
+    return {
+        "batch_analysis": batch_results,
+        "data_source": "openFDA APIs - Comprehensive Batch Analysis",
+        "analysis_type": "Formulary Risk Assessment",
+        "note": f"Analyzed {len(drug_list)} drugs with trend analysis: {'enabled' if include_trends else 'disabled'}"
+    }
+
 # Main Server Execution
 if __name__ == "__main__":
     print("Starting Enhanced MCP Medication Information Server...", file=sys.stderr)
@@ -279,10 +344,13 @@ if __name__ == "__main__":
     print("  - get_shortage_search_guidance: Comprehensive shortage guidance", file=sys.stderr)
     print("  - search_drug_recalls: Working recall search using openFDA", file=sys.stderr)
     print("  - get_drug_label_only: Reliable FDA label information", file=sys.stderr)
+    print("  - analyze_drug_market_trends: Market trend analysis and risk assessment", file=sys.stderr)
+    print("  - batch_drug_analysis: Comprehensive analysis for multiple drugs", file=sys.stderr)
     print("Using WORKING OpenFDA endpoints:", file=sys.stderr)
     print("  - Labels: https://api.fda.gov/drug/label.json", file=sys.stderr)
     print("  - Shortages: https://api.fda.gov/drug/shortages.json", file=sys.stderr)
     print("  - Recalls: https://api.fda.gov/drug/enforcement.json", file=sys.stderr)
+    print("NEW FEATURES: Market trend analysis and batch processing capabilities", file=sys.stderr)
     sys.stderr.flush()
     
     mcp_app.run(transport='stdio')
