@@ -23,16 +23,16 @@ def test_mcp_server():
         ], capture_output=True, text=True, timeout=5)
         
         if "Starting Enhanced MCP Medication Information Server" in result.stderr:
-            print("   ✅ Server starts successfully")
+            print("   Server starts successfully")
         else:
-            print("   ❌ Server startup failed")
+            print("   Server startup failed")
             print(f"   Error: {result.stderr}")
             return False
             
     except subprocess.TimeoutExpired:
-        print("   ✅ Server started (timeout expected for stdio server)")
+        print("    Server started (timeout expected for stdio server)")
     except Exception as e:
-        print(f"   ❌ Server startup error: {e}")
+        print(f"   Server startup error: {e}")
         return False
     
     print("\n2. Testing config file...")
@@ -44,7 +44,7 @@ def test_mcp_server():
             config = json.load(f)
             
         if "mcp_servers" in config:
-            print("   ✅ Config file exists and has mcp_servers")
+            print("    Config file exists and has mcp_servers")
             
             # Check if our server is configured
             servers = config["mcp_servers"]
@@ -55,39 +55,39 @@ def test_mcp_server():
                     break
             
             if our_server:
-                print("   ✅ EnhancedMedicationInformationService found in config")
+                print("    EnhancedMedicationInformationService found in config")
                 print(f"   Command: {our_server['transport']['command']}")
             else:
-                print("   ❌ EnhancedMedicationInformationService NOT found in config")
+                print("   EnhancedMedicationInformationService NOT found in config")
                 return False
         else:
-            print("   ❌ Config file missing mcp_servers section")
+            print("   Config file missing mcp_servers section")
             return False
             
     except FileNotFoundError:
-        print(f"   ❌ Config file not found at {expanded_path}")
+        print(f"   Config file not found at {expanded_path}")
         print("   Create the config file in the correct location")
         return False
     except json.JSONDecodeError:
-        print("   ❌ Config file has invalid JSON")
+        print("   Config file has invalid JSON")
         return False
     except Exception as e:
-        print(f"   ❌ Config file error: {e}")
+        print(f"   Config file error: {e}")
         return False
     
     print("\n3. Testing dependencies...")
     try:
         import mcp.server.fastmcp
-        print("   ✅ MCP SDK installed")
+        print("    MCP SDK installed")
     except ImportError:
-        print("   ❌ MCP SDK not installed - run: pip install mcp")
+        print("   MCP SDK not installed - run: pip install mcp")
         return False
     
     try:
         import openfda_client
-        print("   ✅ OpenFDA client available")
+        print("    OpenFDA client available")
     except ImportError:
-        print("   ❌ OpenFDA client not found - check file location")
+        print("   OpenFDA client not found - check file location")
         return False
     
     return True
@@ -114,10 +114,10 @@ def show_next_steps():
 
 if __name__ == "__main__":
     if test_mcp_server():
-        print("\n🎉 MCP Server setup looks good!")
+        print("\nMCP Server setup looks good!")
         print("Try asking Claude about drug information now.")
     else:
-        print("\n❌ MCP Server setup has issues.")
+        print("\nMCP Server setup has issues.")
         print("Fix the errors above before testing with Claude.")
     
     show_next_steps()

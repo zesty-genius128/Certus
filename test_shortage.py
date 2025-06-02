@@ -25,7 +25,7 @@ print("testing drugs that commonly have shortages...")
 print("=" * 60)
 
 for drug in test_drugs:
-    print(f"\n🔍 testing: {drug.upper()}")
+    print(f"\ntesting: {drug.upper()}")
     print("-" * 30)
     
     try:
@@ -33,19 +33,19 @@ for drug in test_drugs:
         shortage_result = openfda_client.fetch_drug_shortage_info(drug)
         
         if shortage_result.get("shortages"):
-            print(f"   🚨 shortage found! {len(shortage_result['shortages'])} records")
+            print(f"    shortage found! {len(shortage_result['shortages'])} records")
             for i, shortage in enumerate(shortage_result["shortages"][:2]):  # Show first 2
                 print(f"      {i+1}. {shortage['drug_name_reported']}")
                 print(f"         status: {shortage['status']}")
                 print(f"         reason: {shortage['reason']}")
         elif shortage_result.get("error"):
-            print(f"   ❌ error: {shortage_result['error']}")
+            print(f"   error: {shortage_result['error']}")
         else:
-            print(f"   ✅ no shortage: {shortage_result.get('status', 'unknown')}")
+            print(f"   no shortage: {shortage_result.get('status', 'unknown')}")
             
     except Exception as e:
-        print(f"   💥 exception: {e}")
+        print(f"   exception: {e}")
 
 print("\n" + "=" * 60)
-print("if you see '🚨 shortage found!' above, your shortage detection is working!")
-print("if you see mostly '✅ no shortage', that's actually good news for patients.")
+print("if you see 'shortage found!' above, your shortage detection is working!")
+print("if you see mostly 'no shortage', that's actually good news for patients.")

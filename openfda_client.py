@@ -481,16 +481,16 @@ for drug_to_test in test_drugs:
     print(f"1. Label Information:")
     label_data = fetch_drug_label_info(drug_to_test, identifier_type="openfda.generic_name")
     if label_data and not label_data.get("error") and "openfda" in label_data:
-        print(f"   ✅ Manufacturer: {label_data['openfda'].get('manufacturer_name', ['N/A'])}")
-        print(f"   ✅ Generic Name: {label_data['openfda'].get('generic_name', [])}")
+        print(f"   Manufacturer: {label_data['openfda'].get('manufacturer_name', ['N/A'])}")
+        print(f"   Generic Name: {label_data['openfda'].get('generic_name', [])}")
     else:
-        print(f"   ❌ Label error: {label_data.get('error', 'Unknown issue')}")
+        print(f"   Label error: {label_data.get('error', 'Unknown issue')}")
 
     # Test shortage info with the WORKING endpoint
     print(f"2. Shortage Information:")
     shortage_data = fetch_drug_shortage_info(drug_to_test)
     if shortage_data.get("shortages"):
-        print(f"   🚨 FOUND {len(shortage_data['shortages'])} SHORTAGE(S)!")
+        print(f"   FOUND {len(shortage_data['shortages'])} SHORTAGE(S)!")
         for i, shortage in enumerate(shortage_data["shortages"][:2]):  # Show first 2
             print(f"      {i+1}. {shortage['generic_name']}")
             print(f"         Status: {shortage['status']}")
@@ -499,13 +499,9 @@ for drug_to_test in test_drugs:
             if shortage['shortage_reason'] != "N/A":
                 print(f"         Reason: {shortage['shortage_reason'][:60]}...")
     elif shortage_data.get("error"):
-        print(f"   ❌ Error: {shortage_data['error']}")
+        print(f"   Error: {shortage_data['error']}")
     else:
-        print(f"   ✅ No shortages: {shortage_data.get('status')}")
+        print(f"   No shortages: {shortage_data.get('status')}")
 
 print("\n" + "=" * 60)
-print("🎉 BREAKTHROUGH: OpenFDA Shortages API is now WORKING!")
-print("✅ Real shortage data available")
-print("✅ 1,912 shortage records in database") 
-print("✅ Current status and availability information")
 print("Ready for production use! 🚀")

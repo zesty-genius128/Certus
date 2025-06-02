@@ -165,8 +165,8 @@ if __name__ == "__main__":
         explore_fields()
         
         print("\n" + "=" * 60)
-        print("🎉 SUCCESS! The OpenFDA drug shortages API is working!")
+        print(" SUCCESS! The OpenFDA drug shortages API is working!")
         print("Endpoint: https://api.fda.gov/drug/shortages.json")
         print("\nNext step: Update your MCP server to use this endpoint!")
     else:
-        print("\n❌ Could not connect to the shortages endpoint")
+        print("\n Could not connect to the shortages endpoint")
