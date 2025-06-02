@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for the new market trends and batch analysis features
+just a test script for the new market trends and batch analysis stuff. not fancy, just gets the job done.
 """
 
 import os
@@ -11,8 +11,9 @@ load_dotenv()
 
 import openfda_client
 
+# checks if the market trends thing is working. should print out some numbers and risk levels.
 def test_market_trends():
-    """Test the market trends analysis feature"""
+    """give the market trends feature a spin"""
     
     print("🔍 Testing Market Trends Analysis")
     print("=" * 50)
@@ -40,8 +41,9 @@ def test_market_trends():
         except Exception as e:
             print(f"❌ Error analyzing {drug}: {e}")
 
+# runs a batch analysis. handy if you want to see which drugs are a pain in the neck.
 def test_batch_analysis():
-    """Test the batch drug analysis feature"""
+    """try out the batch drug analysis thing"""
     
     print("\n\n🔄 Testing Batch Drug Analysis")
     print("=" * 50)
@@ -113,8 +115,9 @@ def test_batch_analysis():
     except Exception as e:
         print(f"❌ Batch analysis failed: {e}")
 
+# does batch analysis but with trends turned on. takes a bit longer, but hey, more info.
 def test_with_trends():
-    """Test batch analysis with trend analysis enabled"""
+    """batch analysis with trends enabled. for the overachievers."""
     
     print(f"\n\n📈 Testing Batch Analysis with Trends")
     print("=" * 50)
@@ -146,8 +149,9 @@ def test_with_trends():
     except Exception as e:
         print(f"❌ Enhanced batch analysis failed: {e}")
 
+# just to see what happens when you give it weird input or too many drugs.
 def test_edge_cases():
-    """Test edge cases and error handling"""
+    """mess with edge cases and see if it breaks"""
     
     print(f"\n\n🧪 Testing Edge Cases")
     print("=" * 30)

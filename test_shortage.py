@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to check drugs that are more likely to have shortages
+test script to check drugs that are more likely to have shortages
 """
 
 import os
@@ -12,20 +12,20 @@ from mcp_med_info_server import get_medication_profile_logic
 
 # Drugs that commonly have shortages
 test_drugs = [
-    "amphetamine",  # ADHD medication (known to have shortages)
-    "dextrose",     # IV fluid (shortage due to Hurricane Helene)
-    "morphine",     # Opioid (often in shortage)
-    "cisplatin",    # Chemotherapy (recent shortages)
-    "insulin",      # Diabetes medication
-    "amoxicillin",  # Antibiotic
-    "lisinopril"    # Your original query
+    "amphetamine",  # adhd medication (known to have shortages)
+    "dextrose",     # iv fluid (shortage due to hurricane helene)
+    "morphine",     # opioid (often in shortage)
+    "cisplatin",    # chemotherapy (recent shortages)
+    "insulin",      # diabetes medication
+    "amoxicillin",  # antibiotic
+    "lisinopril"    # your original query
 ]
 
-print("Testing drugs that commonly have shortages...")
+print("testing drugs that commonly have shortages...")
 print("=" * 60)
 
 for drug in test_drugs:
-    print(f"\n🔍 Testing: {drug.upper()}")
+    print(f"\n🔍 testing: {drug.upper()}")
     print("-" * 30)
     
     try:
@@ -33,19 +33,19 @@ for drug in test_drugs:
         shortage_result = openfda_client.fetch_drug_shortage_info(drug)
         
         if shortage_result.get("shortages"):
-            print(f"   🚨 SHORTAGE FOUND! {len(shortage_result['shortages'])} records")
+            print(f"   🚨 shortage found! {len(shortage_result['shortages'])} records")
             for i, shortage in enumerate(shortage_result["shortages"][:2]):  # Show first 2
                 print(f"      {i+1}. {shortage['drug_name_reported']}")
-                print(f"         Status: {shortage['status']}")
-                print(f"         Reason: {shortage['reason']}")
+                print(f"         status: {shortage['status']}")
+                print(f"         reason: {shortage['reason']}")
         elif shortage_result.get("error"):
-            print(f"   ❌ Error: {shortage_result['error']}")
+            print(f"   ❌ error: {shortage_result['error']}")
         else:
-            print(f"   ✅ No shortage: {shortage_result.get('status', 'Unknown')}")
+            print(f"   ✅ no shortage: {shortage_result.get('status', 'unknown')}")
             
     except Exception as e:
-        print(f"   💥 Exception: {e}")
+        print(f"   💥 exception: {e}")
 
 print("\n" + "=" * 60)
-print("If you see '🚨 SHORTAGE FOUND!' above, your shortage detection is working!")
-print("If you see mostly '✅ No shortage', that's actually good news for patients.")
+print("if you see '🚨 shortage found!' above, your shortage detection is working!")
+print("if you see mostly '✅ no shortage', that's actually good news for patients.")

@@ -61,28 +61,28 @@ FUZZY_MATCH_THRESHOLD = 88
 
 # === OCR and Preprocessing Functions ===
 def preprocess_image_for_easyocr(image_path: str) -> Union[np.ndarray, None]:
-    """Loads and preprocesses an image for EasyOCR."""
-    global cv2, np # To handle conditional import
+    """loads and preprocesses an image for easyocr"""
+    global cv2, np
     if 'cv2' not in globals() or 'np' not in globals():
-        print("Error: OpenCV (cv2) or NumPy (np) not imported. Cannot preprocess for EasyOCR.")
+        print("error: opencv (cv2) or numpy (np) not imported. cannot preprocess for easyocr.")
         return None
     try:
         img = cv2.imread(image_path)
         if img is None:
-            print(f"Error: Unable to load image at '{image_path}' for EasyOCR")
+            print(f"error: unable to load image at '{image_path}' for easyocr")
             return None
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         alpha, beta = 1.3, 10
         contrast_enhanced = cv2.convertScaleAbs(gray, alpha=alpha, beta=beta)
         _, thresh = cv2.threshold(contrast_enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        print(f"EasyOCR Preprocessing: Applied to {image_path}")
+        print(f"easyocr preprocessing: applied to {image_path}")
         return thresh
     except Exception as e:
-        print(f"Error during EasyOCR preprocessing for '{image_path}': {e}")
+        print(f"error during easyocr preprocessing for '{image_path}': {e}")
         return None
 
 def perform_ocr_easyocr(image_data: np.ndarray) -> Union[str, None]:
-    """Performs OCR using EasyOCR."""
+    """runs easyocr on preprocessed image data"""
     global easyocr_reader_global, easyocr # To handle conditional import
     if 'easyocr' not in globals():
         print("Error: EasyOCR library not imported.")
@@ -104,7 +104,7 @@ def perform_ocr_easyocr(image_data: np.ndarray) -> Union[str, None]:
         return None
 
 def encode_image_to_base64(image_path: str) -> Union[str, None]:
-    """Encodes an image file to a base64 data URI."""
+    """encodes an image to base64 for api calls"""
     try:
         with open(image_path, "rb") as image_file:
             image_bytes = image_file.read()
@@ -123,24 +123,22 @@ def encode_image_to_base64(image_path: str) -> Union[str, None]:
         return None
 
 def perform_ocr_openai(image_path: str) -> Union[str, None]:
-    """Performs OCR using OpenAI's GPT-4 Vision model."""
-    global openai_client_global, openai # To handle conditional import
+    """performs ocr using openai's gpt-4 vision model"""
+    global openai_client_global, openai
     if 'openai' not in globals():
-        print("Error: OpenAI library not imported.")
+        print("error: openai library not imported.")
         return None
     if not openai_client_global:
-        print("Error: OpenAI client not initialized.")
+        print("error: openai client not initialized.")
         return None
-
-    print(f"Encoding image '{image_path}' for OpenAI API...")
+    print(f"encoding image '{image_path}' for openai api...")
     base64_image_data = encode_image_to_base64(image_path)
     if not base64_image_data: return None
-
     ocr_prompt_text = (
-        "Perform OCR on this image. Extract all text exactly as it appears, "
+        "perform ocr on this image. extract all text exactly as it appears, "
         "preserving line breaks and structure where possible."
     )
-    print("Sending request to OpenAI GPT-4 Vision for OCR...")
+    print("sending request to openai gpt-4 vision for ocr...")
     try:
         response = openai_client_global.chat.completions.create(
             model="gpt-4-turbo",
@@ -154,22 +152,21 @@ def perform_ocr_openai(image_path: str) -> Union[str, None]:
         )
         if response.choices and response.choices[0].message and response.choices[0].message.content:
             extracted_text = response.choices[0].message.content
-            print("OpenAI OCR successful.")
-            # Remove markdown code block fences if present
+            print("openai ocr successful.")
             if extracted_text.startswith("```") and extracted_text.endswith("```"):
-                extracted_text = re.sub(r'^```[a-zA-Z]*\n', '', extracted_text) 
-                extracted_text = re.sub(r'\n```$', '', extracted_text) 
+                extracted_text = re.sub(r'^```[a-zA-Z]*\n', '', extracted_text)
+                extracted_text = re.sub(r'\n```$', '', extracted_text)
                 extracted_text = extracted_text.strip()
             return extracted_text
         else:
-            print("Error: OpenAI response did not contain expected text.")
+            print("error: openai response did not contain expected text.")
             return None
     except Exception as e:
-        print(f"An unexpected error occurred during OpenAI OCR: {e}")
+        print(f"an unexpected error occurred during openai ocr: {e}")
         return None
 
 def get_image_parts_for_gemini(image_path: str) -> Union[Dict[str, Any], None]:
-    """Reads an image file and prepares it for the Gemini API."""
+    """reads an image file and prepares it for the gemini api"""
     global Image, io # To handle conditional import
     if 'Image' not in globals() or 'io' not in globals():
         print("Error: PIL (Image) or io not imported. Cannot prepare for Gemini.")
@@ -195,7 +192,7 @@ def get_image_parts_for_gemini(image_path: str) -> Union[Dict[str, Any], None]:
         return None
 
 def perform_ocr_gemini(image_path: str) -> Union[str, None]:
-    """Performs OCR using Google's Gemini Vision model."""
+    """performs ocr using google's gemini api"""
     global gemini_model_global, genai # To handle conditional import
     if 'genai' not in globals():
         print("Error: Google Generative AI library not imported.")
@@ -229,9 +226,9 @@ def perform_ocr_gemini(image_path: str) -> Union[str, None]:
 
 # === Shared Post-processing and API Call Logic ===
 def apply_fuzzy_matching(text: str, dictionary: list, threshold: int) -> Union[str, None]:
-    """Applies fuzzy matching to correct common OCR errors."""
+    """applies fuzzy matching to correct common ocr errors"""
     if not text: return None
-    print(f"Applying fuzzy matching (threshold={threshold})...")
+    print(f"applying fuzzy matching (threshold={threshold})...")
     corrected_lines = []
     lines = text.split("\n")
     corrections_made = 0
@@ -245,14 +242,14 @@ def apply_fuzzy_matching(text: str, dictionary: list, threshold: int) -> Union[s
             best_match, score = process.extractOne(word, dictionary, scorer=fuzz.ratio)
             if score >= threshold and word != best_match:
                 if best_match.lower() in ["medication", "prescription"] and len(word) > 4:
-                     corrected_words.append(word) 
+                     corrected_words.append(word)
                 else:
                     corrected_words.append(best_match)
                     corrections_made += 1
             else:
                 corrected_words.append(word)
         corrected_lines.append(" ".join(corrected_words))
-    print(f"Fuzzy matching complete. Made {corrections_made} potential corrections.")
+    print(f"fuzzy matching complete. made {corrections_made} potential corrections.")
     return "\n".join(corrected_lines)
 
 def get_document_details_from_bluehive(ocr_text: str, user_question: str, bluehive_key: str) -> Union[dict, None]:

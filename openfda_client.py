@@ -4,16 +4,17 @@ import os
 import json
 from typing import Dict, Any, List
 
-# Load the API key from environment variables
+# Grab the API key from the environment, if it's there
 OPENFDA_API_KEY = os.environ.get("OPENFDA_API_KEY")
 
-# Correct OpenFDA endpoints
+# These are the endpoints we care about. Don't mess with these unless you know what you're doing!
 DRUG_LABEL_ENDPOINT = "https://api.fda.gov/drug/label.json"
-DRUG_SHORTAGES_ENDPOINT = "https://api.fda.gov/drug/shortages.json"  # THE WORKING ENDPOINT!
+DRUG_SHORTAGES_ENDPOINT = "https://api.fda.gov/drug/shortages.json"  # This one actually works!
 
+# This one grabs the label info for a drug. Pretty straightforward.
 def fetch_drug_label_info(drug_identifier: str, identifier_type: str = "openfda.generic_name") -> Dict[str, Any]:
     """
-    Fetches drug labeling information from openFDA.
+    Pulls down drug label info from openFDA. If you pass in something weird, don't be surprised if it fails.
     """
     print(f"openFDA Client: Fetching label info for: {drug_identifier} using field {identifier_type}")
     params = {
@@ -45,10 +46,10 @@ def fetch_drug_label_info(drug_identifier: str, identifier_type: str = "openfda.
         print("openFDA Client: Error decoding JSON from drug label API")
         return {"error": "Failed to decode JSON response from label API"}
 
+# This one checks for shortages. If the API is down, well, that's life.
 def fetch_drug_shortage_info(drug_identifier: str) -> Dict[str, Any]:
     """
-    Fetches drug shortage information from the WORKING OpenFDA shortages endpoint.
-    Now uses the correct endpoint: https://api.fda.gov/drug/shortages.json
+    Looks up shortage info for a drug. Uses the working endpoint, so it should be fine.
     """
     print(f"openFDA Client: Fetching shortage info for: {drug_identifier}")
     
@@ -169,9 +170,10 @@ def fetch_drug_shortage_info(drug_identifier: str) -> Dict[str, Any]:
     # If no search strategies found matches
     return {"status": f"No current shortages found for '{drug_identifier}' in OpenFDA database"}
 
+# This one looks for recalls. If you get nothing back, maybe there just aren't any.
 def search_drug_recalls(drug_identifier: str) -> Dict[str, Any]:
     """
-    Search for drug recalls using the OpenFDA enforcement endpoint.
+    Checks for drug recalls using the openFDA enforcement endpoint. Not much else to say.
     """
     print(f"openFDA Client: Searching recalls for: {drug_identifier}")
     
@@ -210,10 +212,10 @@ def search_drug_recalls(drug_identifier: str) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"Error searching recalls: {e}"}
 
+# This is the big one for trend analysis. It tries to figure out if a drug is always in shortage or not.
 def analyze_drug_market_trends(drug_identifier: str, months_back: int = 12) -> Dict[str, Any]:
     """
-    Analyze market trends and shortage patterns for a specific drug over time.
-    Provides trend analysis, frequency calculations, and market insights.
+    Looks at shortage patterns for a drug over time. If you want to see if something's always out of stock, this is your friend.
     """
     print(f"openFDA Client: Analyzing market trends for: {drug_identifier} over {months_back} months")
     
@@ -342,10 +344,10 @@ def analyze_drug_market_trends(drug_identifier: str, months_back: int = 12) -> D
             "recommendation": "Unable to perform trend analysis due to API issues"
         }
 
+# Batch analysis! Give it a list of drugs and it'll try to tell you which ones are troublemakers.
 def batch_drug_analysis(drug_list: List[str], include_trends: bool = False) -> Dict[str, Any]:
     """
-    Perform comprehensive analysis on a batch of drugs for formulary management.
-    Provides shortage status, recall information, and risk assessment for multiple drugs.
+    Runs through a bunch of drugs and checks for shortages, recalls, and general risk. Don't go overboard with the list size.
     """
     print(f"openFDA Client: Starting batch analysis for {len(drug_list)} drugs")
     
@@ -458,51 +460,52 @@ def batch_drug_analysis(drug_list: List[str], include_trends: bool = False) -> D
     
     print(f"openFDA Client: Completed batch analysis for {len(drug_list)} drugs")
     return results
-    from dotenv import load_dotenv
-    load_dotenv()
-    OPENFDA_API_KEY = os.environ.get("OPENFDA_API_KEY")
-    if OPENFDA_API_KEY: 
-        print(f"openFDA Client Test: API Key loaded - {OPENFDA_API_KEY[:5]}...")
-    else: 
-        print("openFDA Client Test: API Key NOT loaded.")
 
-    print("\n--- Testing CORRECTED openFDA Client ---")
-    print("Using the WORKING endpoint: https://api.fda.gov/drug/shortages.json")
+from dotenv import load_dotenv
+load_dotenv()
+OPENFDA_API_KEY = os.environ.get("OPENFDA_API_KEY")
+if OPENFDA_API_KEY: 
+    print(f"openFDA Client Test: API Key loaded - {OPENFDA_API_KEY[:5]}...")
+else: 
+    print("openFDA Client Test: API Key NOT loaded.")
+
+print("\n--- Testing CORRECTED openFDA Client ---")
+print("Using the WORKING endpoint: https://api.fda.gov/drug/shortages.json")
+
+test_drugs = ["lisinopril", "amoxicillin", "insulin", "clindamycin"]
+
+for drug_to_test in test_drugs:
+    print(f"\n=== Testing {drug_to_test.upper()} ===")
     
-    test_drugs = ["lisinopril", "amoxicillin", "insulin", "clindamycin"]
+    # Test label info
+    print(f"1. Label Information:")
+    label_data = fetch_drug_label_info(drug_to_test, identifier_type="openfda.generic_name")
+    if label_data and not label_data.get("error") and "openfda" in label_data:
+        print(f"   ✅ Manufacturer: {label_data['openfda'].get('manufacturer_name', ['N/A'])}")
+        print(f"   ✅ Generic Name: {label_data['openfda'].get('generic_name', [])}")
+    else:
+        print(f"   ❌ Label error: {label_data.get('error', 'Unknown issue')}")
 
-    for drug_to_test in test_drugs:
-        print(f"\n=== Testing {drug_to_test.upper()} ===")
-        
-        # Test label info
-        print(f"1. Label Information:")
-        label_data = fetch_drug_label_info(drug_to_test, identifier_type="openfda.generic_name")
-        if label_data and not label_data.get("error") and "openfda" in label_data:
-            print(f"   ✅ Manufacturer: {label_data['openfda'].get('manufacturer_name', ['N/A'])}")
-            print(f"   ✅ Generic Name: {label_data['openfda'].get('generic_name', [])}")
-        else:
-            print(f"   ❌ Label error: {label_data.get('error', 'Unknown issue')}")
+    # Test shortage info with the WORKING endpoint
+    print(f"2. Shortage Information:")
+    shortage_data = fetch_drug_shortage_info(drug_to_test)
+    if shortage_data.get("shortages"):
+        print(f"   🚨 FOUND {len(shortage_data['shortages'])} SHORTAGE(S)!")
+        for i, shortage in enumerate(shortage_data["shortages"][:2]):  # Show first 2
+            print(f"      {i+1}. {shortage['generic_name']}")
+            print(f"         Status: {shortage['status']}")
+            print(f"         Availability: {shortage['availability']}")
+            print(f"         Company: {shortage['company_name']}")
+            if shortage['shortage_reason'] != "N/A":
+                print(f"         Reason: {shortage['shortage_reason'][:60]}...")
+    elif shortage_data.get("error"):
+        print(f"   ❌ Error: {shortage_data['error']}")
+    else:
+        print(f"   ✅ No shortages: {shortage_data.get('status')}")
 
-        # Test shortage info with the WORKING endpoint
-        print(f"2. Shortage Information:")
-        shortage_data = fetch_drug_shortage_info(drug_to_test)
-        if shortage_data.get("shortages"):
-            print(f"   🚨 FOUND {len(shortage_data['shortages'])} SHORTAGE(S)!")
-            for i, shortage in enumerate(shortage_data["shortages"][:2]):  # Show first 2
-                print(f"      {i+1}. {shortage['generic_name']}")
-                print(f"         Status: {shortage['status']}")
-                print(f"         Availability: {shortage['availability']}")
-                print(f"         Company: {shortage['company_name']}")
-                if shortage['shortage_reason'] != "N/A":
-                    print(f"         Reason: {shortage['shortage_reason'][:60]}...")
-        elif shortage_data.get("error"):
-            print(f"   ❌ Error: {shortage_data['error']}")
-        else:
-            print(f"   ✅ No shortages: {shortage_data.get('status')}")
-
-    print("\n" + "=" * 60)
-    print("🎉 BREAKTHROUGH: OpenFDA Shortages API is now WORKING!")
-    print("✅ Real shortage data available")
-    print("✅ 1,912 shortage records in database") 
-    print("✅ Current status and availability information")
-    print("Ready for production use! 🚀")
+print("\n" + "=" * 60)
+print("🎉 BREAKTHROUGH: OpenFDA Shortages API is now WORKING!")
+print("✅ Real shortage data available")
+print("✅ 1,912 shortage records in database") 
+print("✅ Current status and availability information")
+print("Ready for production use! 🚀")

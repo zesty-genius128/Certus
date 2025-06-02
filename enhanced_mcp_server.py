@@ -16,17 +16,17 @@ import openfda_client
 # Load environment variables from .env file
 load_dotenv()
 
-# Initialize FastMCP Application
+# Fire up the FastMCP app. This is the main thing Claude talks to.
 mcp_app = FastMCP(
     name="EnhancedMedicationInformationService",
     version="0.3.0",
-    description="An MCP server that provides comprehensive medication information using openFDA with WORKING shortage data and advanced analytics."
+    description="An MCP server that provides comprehensive medication info using openFDA with WORKING shortage data and some extra analytics."
 )
 
+# This is the main logic for getting a drug's info. It tries to be smart about what to search for.
 def get_medication_profile_logic(drug_identifier: str, identifier_type: str) -> Dict[str, Any]:
     """
-    Internal logic to fetch and combine drug label and shortage information.
-    NOW USING THE WORKING SHORTAGES API!
+    Pulls together drug label and shortage info. Uses the working shortages API, so it should be good.
     """
     print(f"MCP Server Logic: Request for drug: {drug_identifier}, type: {identifier_type}", file=sys.stderr)
     sys.stderr.flush()
@@ -108,22 +108,15 @@ def get_medication_profile_logic(drug_identifier: str, identifier_type: str) -> 
     sys.stderr.flush()
     return profile
 
-# Define MCP Tools
+# All the MCP tools below are what Claude can call. Each one does something a little different.
+
 @mcp_app.tool()
 async def get_medication_profile(
     drug_identifier: str,
     identifier_type: str = "openfda.generic_name"
 ) -> Dict[str, Any]:
     """
-    Retrieves comprehensive information about a medication from openFDA.
-    Provides FDA-approved labeling information and current shortage status.
-
-    Args:
-        drug_identifier: The name (generic or brand), NDC, or other identifier of the drug.
-        identifier_type: How to search openFDA labels ('openfda.generic_name', 'openfda.brand_name', etc.)
-
-    Returns:
-        A dictionary containing FDA label information and current shortage data.
+    Grabs all the info about a drug, including label and shortage status. If something's missing, blame the API.
     """
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, get_medication_profile_logic, drug_identifier, identifier_type)
@@ -134,15 +127,7 @@ async def search_drug_shortages(
     limit: int = 10
 ) -> Dict[str, Any]:
     """
-    Searches for current drug shortage information using the working OpenFDA shortages API.
-    NOW FUNCTIONAL with real shortage data from https://api.fda.gov/drug/shortages.json
-    
-    Args:
-        search_term: The drug name or active ingredient to search for
-        limit: Maximum number of shortage records to return (default: 10)
-    
-    Returns:
-        A dictionary containing current shortage information from OpenFDA.
+    Looks up shortages for a drug. If you get nothing, maybe it's not in shortage (or the API is down).
     """
     print(f"MCP Server: Searching OpenFDA for shortages of: {search_term}", file=sys.stderr)
     sys.stderr.flush()
@@ -164,14 +149,7 @@ async def get_shortage_search_guidance(
     drug_name: str
 ) -> Dict[str, Any]:
     """
-    Provides specific guidance on how to search for current drug shortage information.
-    Includes both OpenFDA results and additional search strategies.
-    
-    Args:
-        drug_name: The drug name to search for shortage information
-    
-    Returns:
-        Detailed guidance on finding current shortage information.
+    Gives you some tips on how to search for shortages. Not rocket science, but might help.
     """
     print(f"MCP Server: Providing shortage search guidance for: {drug_name}", file=sys.stderr)
     sys.stderr.flush()
@@ -217,15 +195,7 @@ async def search_drug_recalls(
     limit: int = 10
 ) -> Dict[str, Any]:
     """
-    Searches for drug recall information using the OpenFDA enforcement API.
-    This endpoint is functional and provides current recall/enforcement data.
-    
-    Args:
-        search_term: The drug name to search for in recall records
-        limit: Maximum number of recall records to return (default: 10)
-    
-    Returns:
-        A dictionary containing recall information matching the search term.
+    Checks for recalls using the openFDA enforcement API. If you get nothing, maybe there just aren't any.
     """
     print(f"MCP Server: Searching recalls for: {search_term}", file=sys.stderr)
     sys.stderr.flush()
@@ -246,15 +216,7 @@ async def get_drug_label_only(
     identifier_type: str = "openfda.generic_name"
 ) -> Dict[str, Any]:
     """
-    Retrieves only the drug labeling information from openFDA.
-    This is the most reliable function since it uses a working API endpoint.
-    
-    Args:
-        drug_identifier: The name (generic or brand), NDC, or other identifier
-        identifier_type: How to search openFDA labels
-    
-    Returns:
-        A dictionary containing only FDA-approved drug label information.
+    Just gets the FDA label info. This one almost always works.
     """
     print(f"MCP Server: Fetching FDA label for: {drug_identifier}", file=sys.stderr)
     sys.stderr.flush()
@@ -276,15 +238,7 @@ async def analyze_drug_market_trends(
     months_back: int = 12
 ) -> Dict[str, Any]:
     """
-    Analyzes market trends and shortage patterns for a specific drug over time.
-    Provides comprehensive trend analysis, frequency calculations, and market insights.
-    
-    Args:
-        drug_name: The drug name to analyze for market trends
-        months_back: Number of months to analyze (default: 12)
-    
-    Returns:
-        A dictionary containing trend analysis, risk assessment, and market insights.
+    Tries to figure out if a drug is always in shortage or not. Handy for planning ahead.
     """
     print(f"MCP Server: Analyzing market trends for: {drug_name} over {months_back} months", file=sys.stderr)
     sys.stderr.flush()
@@ -306,15 +260,7 @@ async def batch_drug_analysis(
     include_trends: bool = False
 ) -> Dict[str, Any]:
     """
-    Performs comprehensive analysis on multiple drugs for formulary management.
-    Provides shortage status, recall information, and risk assessment for drug lists.
-    
-    Args:
-        drug_list: List of drug names to analyze (max 25 drugs)
-        include_trends: Whether to include trend analysis for each drug (default: False)
-    
-    Returns:
-        A dictionary containing batch analysis results, risk assessment, and formulary recommendations.
+    Runs through a bunch of drugs and checks for shortages, recalls, and general risk. Don't go wild with the list size.
     """
     print(f"MCP Server: Starting batch analysis for {len(drug_list)} drugs", file=sys.stderr)
     sys.stderr.flush()
@@ -335,17 +281,17 @@ async def batch_drug_analysis(
         "note": f"Analyzed {len(drug_list)} drugs with trend analysis: {'enabled' if include_trends else 'disabled'}"
     }
 
-# Main Server Execution
+# This is the thing that actually starts the server. If you see errors here, something's probably wrong with your setup.
 if __name__ == "__main__":
     print("Starting Enhanced MCP Medication Information Server...", file=sys.stderr)
     print("Available tools:", file=sys.stderr)
-    print("  - get_medication_profile: Complete drug information with shortage data", file=sys.stderr)
+    print("  - get_medication_profile: Complete drug info with shortage data", file=sys.stderr)
     print("  - search_drug_shortages: Direct shortage search using OpenFDA", file=sys.stderr)
-    print("  - get_shortage_search_guidance: Comprehensive shortage guidance", file=sys.stderr)
+    print("  - get_shortage_search_guidance: Some tips for searching shortages", file=sys.stderr)
     print("  - search_drug_recalls: Working recall search using openFDA", file=sys.stderr)
-    print("  - get_drug_label_only: Reliable FDA label information", file=sys.stderr)
+    print("  - get_drug_label_only: Reliable FDA label info", file=sys.stderr)
     print("  - analyze_drug_market_trends: Market trend analysis and risk assessment", file=sys.stderr)
-    print("  - batch_drug_analysis: Comprehensive analysis for multiple drugs", file=sys.stderr)
+    print("  - batch_drug_analysis: Analysis for a bunch of drugs at once", file=sys.stderr)
     print("Using WORKING OpenFDA endpoints:", file=sys.stderr)
     print("  - Labels: https://api.fda.gov/drug/label.json", file=sys.stderr)
     print("  - Shortages: https://api.fda.gov/drug/shortages.json", file=sys.stderr)
