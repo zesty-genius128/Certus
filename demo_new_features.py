@@ -17,7 +17,7 @@ from enhanced_mcp_server import analyze_drug_market_trends, batch_drug_analysis
 async def demo_market_trends():
     """show the market trends analysis tool in action"""
     
-    print("🔍 DEMO: Market Trends Analysis Tool")
+    print(" DEMO: Market Trends Analysis Tool")
     print("=" * 50)
     print("Simulating Claude Desktop query: 'Analyze market trends for amoxicillin'")
     print()
@@ -26,7 +26,7 @@ async def demo_market_trends():
         # This is what Claude would call through MCP
         result = await analyze_drug_market_trends("amoxicillin", months_back=12)
         
-        print("📊 MCP Tool Response:")
+        print("MCP Tool Response:")
         print("-" * 20)
         
         trend_data = result.get('trend_data', {})
@@ -45,16 +45,16 @@ async def demo_market_trends():
         if status_breakdown:
             print(f"Status Breakdown: {status_breakdown}")
         
-        print(f"\n✅ Claude would receive this structured data and provide insights to the user")
+        print(f"\nClaude would receive this structured data and provide insights to the user")
         
     except Exception as e:
-        print(f"❌ Demo failed: {e}")
+        print(f" Demo failed: {e}")
 
 # for batch analysis. give it a list, see what comes back. good for hospital folks.
 async def demo_batch_analysis():
     """show the batch drug analysis tool in action"""
     
-    print(f"\n\n🔄 DEMO: Batch Drug Analysis Tool")
+    print(f"\n\n DEMO: Batch Drug Analysis Tool")
     print("=" * 50)
     print("Simulating Claude Desktop query: 'Analyze our ICU formulary for shortage risks'")
     print()
@@ -75,7 +75,7 @@ async def demo_batch_analysis():
         # This is what Claude would call through MCP
         result = await batch_drug_analysis(icu_formulary, include_trends=False)
         
-        print("📊 MCP Tool Response:")
+        print("MCP Tool Response:")
         print("-" * 20)
         
         batch_analysis = result.get('batch_analysis', {})
@@ -89,36 +89,36 @@ async def demo_batch_analysis():
         
         # Risk assessment
         risk_assessment = batch_analysis.get('risk_assessment', {})
-        print(f"\n⚠️  Risk Assessment:")
+        print(f"\nRisk Assessment:")
         
         high_risk = risk_assessment.get('high_risk', [])
         medium_risk = risk_assessment.get('medium_risk', [])
         low_risk = risk_assessment.get('low_risk', [])
         
         if high_risk:
-            print(f"   🚨 High Risk: {', '.join(high_risk)}")
+            print(f" High Risk: {', '.join(high_risk)}")
         if medium_risk:
-            print(f"   ⚠️  Medium Risk: {', '.join(medium_risk)}")
+            print(f" Medium Risk: {', '.join(medium_risk)}")
         if low_risk:
-            print(f"   ✅ Low Risk: {', '.join(low_risk)}")
+            print(f" Low Risk: {', '.join(low_risk)}")
         
         # Recommendations
         recommendations = batch_analysis.get('formulary_recommendations', [])
         if recommendations:
-            print(f"\n💡 Formulary Recommendations:")
+            print(f"\n Formulary Recommendations:")
             for i, rec in enumerate(recommendations[:3], 1):  # Show top 3
                 print(f"   {i}. {rec}")
         
-        print(f"\n✅ Claude would use this data to provide actionable recommendations to healthcare teams")
+        print(f"\n Claude would use this data to provide actionable recommendations to healthcare teams")
         
     except Exception as e:
-        print(f"❌ Demo failed: {e}")
+        print(f" Demo failed: {e}")
 
 # just some use cases. not everything has to be super formal, right?
 async def demo_use_cases():
     """show some real-world-ish use cases for these tools"""
     
-    print(f"\n\n💼 PRACTICAL USE CASES")
+    print(f"\n\n PRACTICAL USE CASES")
     print("=" * 40)
     
     use_cases = [
@@ -158,7 +158,7 @@ async def demo_use_cases():
 async def demo_integration_examples():
     """show how these tools could fit into a claude chat"""
     
-    print(f"\n\n💬 CLAUDE DESKTOP INTEGRATION EXAMPLES")
+    print(f"\n\n CLAUDE DESKTOP INTEGRATION EXAMPLES")
     print("=" * 50)
     
     conversations = [
@@ -196,7 +196,7 @@ async def demo_integration_examples():
 async def main():
     """run all the demo stuff above"""
     
-    print("🎭 ENHANCED MCP SERVER - NEW FEATURES DEMO")
+    print(" ENHANCED MCP SERVER - NEW FEATURES DEMO")
     print("=" * 60)
     print("Demonstrating advanced analytics capabilities for medication management")
     print()
@@ -207,14 +207,8 @@ async def main():
     await demo_integration_examples()
     
     print(f"\n" + "=" * 60)
-    print("🎉 DEMO COMPLETE!")
+    print(" DEMO COMPLETE!")
     print("=" * 60)
-    print("Your Enhanced MCP Server now provides:")
-    print("✅ Market trend analysis and risk assessment")
-    print("✅ Batch processing for formulary management") 
-    print("✅ Advanced analytics for healthcare decision support")
-    print("✅ Production-ready tools for Claude Desktop integration")
-    print(f"\n🚀 Ready to demonstrate advanced medication management capabilities!")
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -28,7 +28,7 @@ def find_claude_config():
         expanded_path = os.path.expanduser(location)
         if os.path.exists(expanded_path):
             found_configs.append(expanded_path)
-            print(f"✅ Found config: {expanded_path}")
+            print(f"Found config: {expanded_path}")
             
             # Check if it has our server
             try:
@@ -39,19 +39,19 @@ def find_claude_config():
                     servers = config["mcp_servers"]
                     our_server = any(s.get("name") == "EnhancedMedicationInformationService" for s in servers)
                     if our_server:
-                        print(f"   ✅ Contains our MCP server")
+                        print(f"   Contains our MCP server")
                     else:
-                        print(f"   ❌ Missing our MCP server")
+                        print(f"   Missing our MCP server")
                 else:
-                    print(f"   ❌ No mcp_servers section")
+                    print(f"   No mcp_servers section")
                     
             except Exception as e:
-                print(f"   ❌ Error reading config: {e}")
+                print(f"   Error reading config: {e}")
         else:
-            print(f"❌ Not found: {location}")
+            print(f"Not found: {location}")
     
     if not found_configs:
-        print("\n❌ No Claude Desktop config files found!")
+        print("\nNo Claude Desktop config files found!")
         print("Let's create one in the standard location...")
         return create_config()
     
@@ -80,11 +80,11 @@ def create_config():
     try:
         with open(config_path, 'w') as f:
             json.dump(config, f, indent=2)
-        print("✅ Config file created!")
+        print("Config file created!")
         print("🔄 Restart Claude Desktop now!")
         return [config_path]
     except Exception as e:
-        print(f"❌ Error creating config: {e}")
+        print(f"Error creating config: {e}")
         return []
 
 def check_claude_desktop_version():
@@ -95,7 +95,7 @@ def check_claude_desktop_version():
     
     app_path = "/Applications/Claude.app"
     if os.path.exists(app_path):
-        print("✅ Claude Desktop is installed")
+        print("Claude Desktop is installed")
         
         # Try to get version info
         try:
@@ -107,39 +107,39 @@ def check_claude_desktop_version():
             if result.stdout:
                 print(f"Version info: {result.stdout.strip()}")
             else:
-                print("ℹ️  Version info not available via CLI")
+                print("Version info not available via CLI")
                 
         except Exception:
-            print("ℹ️  Could not get version info")
+            print("Could not get version info")
             
         print("💡 Make sure you have the latest version that supports MCP")
         print("💡 MCP support was added in recent versions")
         
     else:
-        print("❌ Claude Desktop not found at /Applications/Claude.app")
-        print("📥 Download from: https://claude.ai/download")
+        print("Claude Desktop not found at /Applications/Claude.app")
+        print("Download from: https://claude.ai/download")
 
 def test_permissions():
     """Test if there are permission issues"""
     
-    print(f"\n🔐 Testing Permissions")
+    print(f"\nTesting Permissions")
     print("=" * 30)
     
     server_path = "/Users/adityadamerla/Documents/GitHub/med_info_mcp_project/enhanced_mcp_server.py"
     
     if os.path.exists(server_path):
         if os.access(server_path, os.R_OK):
-            print("✅ Server file is readable")
+            print("Server file is readable")
         else:
-            print("❌ Server file is not readable")
+            print("Server file is not readable")
             
         if os.access(server_path, os.X_OK):
-            print("✅ Server file is executable")
+            print("Server file is executable")
         else:
-            print("❌ Server file is not executable")
+            print("Server file is not executable")
             print("Fix with: chmod +x enhanced_mcp_server.py")
     else:
-        print(f"❌ Server file not found: {server_path}")
+        print(f"Server file not found: {server_path}")
 
 if __name__ == "__main__":
     configs = find_claude_config()
@@ -151,17 +151,17 @@ if __name__ == "__main__":
     print("=" * 50)
     
     if configs:
-        print("✅ Config file(s) found")
+        print("Config file(s) found")
         print("1. Completely quit Claude Desktop")
         print("2. Restart Claude Desktop") 
         print("3. Try asking: 'Get medication profile for lisinopril'")
         print("4. Look for MCP tool usage indicators")
     else:
-        print("❌ No config files found - created one")
+        print(" No config files found - created one")
         print("1. Restart Claude Desktop")
         print("2. Test again")
     
-    print(f"\n💡 If still not working:")
+    print(f"\n If still not working:")
     print("- Check Claude Desktop logs/console")
     print("- Verify Claude Desktop version supports MCP")
     print("- Try a simpler MCP server first")
