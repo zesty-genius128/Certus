@@ -11,8 +11,6 @@ DRUG_SHORTAGES_ENDPOINT = "https://api.fda.gov/drug/shortages.json"
 
 def fetch_drug_label_info(drug_identifier: str, identifier_type: str = "openfda.generic_name") -> Dict[str, Any]:
     """Retrieve drug label information from openFDA"""
-    print(f"Fetching label info for: {drug_identifier}", file=sys.stderr)
-    
     params = {
         'search': f'{identifier_type}:"{drug_identifier}"',
         'limit': 1
@@ -41,9 +39,6 @@ def fetch_drug_label_info(drug_identifier: str, identifier_type: str = "openfda.
 
 def fetch_drug_shortage_info(drug_identifier: str) -> Dict[str, Any]:
     """Search for drug shortage information"""
-    print(f"Searching shortages for: {drug_identifier}", file=sys.stderr)
-    
-    # Clean up drug name
     clean_name = drug_identifier.lower().strip()
     if " and " in clean_name:
         clean_name = clean_name.split(" and ")[0].strip()
@@ -129,7 +124,6 @@ def fetch_drug_shortage_info(drug_identifier: str) -> Dict[str, Any]:
                         })
                 
                 if shortages:
-                    print(f"Found {len(shortages)} shortage records", file=sys.stderr)
                     return {"shortages": shortages}
                     
         except (requests.exceptions.RequestException, json.JSONDecodeError):
@@ -139,8 +133,6 @@ def fetch_drug_shortage_info(drug_identifier: str) -> Dict[str, Any]:
 
 def search_drug_recalls(drug_identifier: str) -> Dict[str, Any]:
     """Search for drug recalls"""
-    print(f"Searching recalls for: {drug_identifier}", file=sys.stderr)
-    
     endpoint = "https://api.fda.gov/drug/enforcement.json"
     params = {
         'search': f'product_description:"{drug_identifier}"',
@@ -178,8 +170,6 @@ def search_drug_recalls(drug_identifier: str) -> Dict[str, Any]:
 
 def analyze_drug_market_trends(drug_identifier: str, months_back: int = 12) -> Dict[str, Any]:
     """Analyze shortage patterns and market trends for a drug"""
-    print(f"Analyzing trends for: {drug_identifier}", file=sys.stderr)
-    
     clean_name = drug_identifier.lower().strip()
     
     params = {
@@ -310,7 +300,7 @@ def analyze_drug_market_trends(drug_identifier: str, months_back: int = 12) -> D
 
 def batch_drug_analysis(drug_list: List[str], include_trends: bool = False) -> Dict[str, Any]:
     """Analyze multiple drugs for shortages and risk assessment"""
-    print(f"Starting batch analysis for {len(drug_list)} drugs", file=sys.stderr)
+    print(f"analyzing {len(drug_list)} drugs", file=sys.stderr)
     
     if len(drug_list) > 25:
         return {
@@ -337,8 +327,6 @@ def batch_drug_analysis(drug_list: List[str], include_trends: bool = False) -> D
     }
     
     for drug in drug_list:
-        print(f"Analyzing {drug}", file=sys.stderr)
-        
         drug_analysis = {
             "drug_name": drug,
             "shortage_status": "Unknown",
@@ -417,5 +405,4 @@ def batch_drug_analysis(drug_list: List[str], include_trends: bool = False) -> D
     
     results["formulary_recommendations"].append(f"Analyzed {total_drugs} drugs with {results['batch_summary']['total_shortage_events']} total shortage events")
     
-    print(f"Completed batch analysis for {len(drug_list)} drugs", file=sys.stderr)
     return results

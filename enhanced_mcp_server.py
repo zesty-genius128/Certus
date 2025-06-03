@@ -4,8 +4,6 @@ from dotenv import load_dotenv
 import sys
 from typing import Dict, Any, Optional, List
 import asyncio
-import requests
-import json
 
 from mcp.server.fastmcp import FastMCP
 import openfda_client
@@ -20,9 +18,6 @@ mcp_app = FastMCP(
 
 def get_medication_profile_logic(drug_identifier: str, identifier_type: str) -> Dict[str, Any]:
     """Get complete drug profile including label and shortage information"""
-    print(f"Request for drug: {drug_identifier}, type: {identifier_type}", file=sys.stderr)
-    sys.stderr.flush()
-
     # Get label information
     label_info = openfda_client.fetch_drug_label_info(drug_identifier, identifier_type=identifier_type)
 
@@ -32,8 +27,6 @@ def get_medication_profile_logic(drug_identifier: str, identifier_type: str) -> 
         generic_names = label_info["openfda"].get("generic_name")
         if generic_names and isinstance(generic_names, list) and len(generic_names) > 0:
             shortage_search_term = generic_names[0]
-            print(f"Using generic name '{shortage_search_term}' for shortage lookup", file=sys.stderr)
-            sys.stderr.flush()
 
     # Get shortage information
     shortage_info = openfda_client.fetch_drug_shortage_info(shortage_search_term)
@@ -96,8 +89,6 @@ def get_medication_profile_logic(drug_identifier: str, identifier_type: str) -> 
         else:
             profile["overall_status"] = "SUCCESS: Retrieved complete drug profile - no current shortages found"
     
-    print(f"Profile assembled for {drug_identifier}", file=sys.stderr)
-    sys.stderr.flush()
     return profile
 
 @mcp_app.tool()
@@ -119,9 +110,6 @@ async def search_drug_shortages(
     """
     Search for drug shortages using openFDA database
     """
-    print(f"Searching shortages for: {search_term}", file=sys.stderr)
-    sys.stderr.flush()
-    
     loop = asyncio.get_event_loop()
     shortage_info = await loop.run_in_executor(None, openfda_client.fetch_drug_shortage_info, search_term)
     
@@ -141,9 +129,6 @@ async def get_shortage_search_guidance(
     """
     Get search guidance and tips for finding drug shortage information
     """
-    print(f"Providing shortage search guidance for: {drug_name}", file=sys.stderr)
-    sys.stderr.flush()
-    
     loop = asyncio.get_event_loop()
     openfda_results = await loop.run_in_executor(None, openfda_client.fetch_drug_shortage_info, drug_name)
     
@@ -183,9 +168,6 @@ async def search_drug_recalls(
     """
     Search for drug recalls using openFDA enforcement database
     """
-    print(f"Searching recalls for: {search_term}", file=sys.stderr)
-    sys.stderr.flush()
-    
     loop = asyncio.get_event_loop()
     recall_info = await loop.run_in_executor(None, openfda_client.search_drug_recalls, search_term)
     
@@ -204,9 +186,6 @@ async def get_drug_label_only(
     """
     Get only FDA label information for a drug
     """
-    print(f"Fetching FDA label for: {drug_identifier}", file=sys.stderr)
-    sys.stderr.flush()
-    
     loop = asyncio.get_event_loop()
     label_info = await loop.run_in_executor(None, openfda_client.fetch_drug_label_info, drug_identifier, identifier_type)
     
@@ -226,9 +205,6 @@ async def analyze_drug_market_trends(
     """
     Analyze drug shortage patterns and market trends
     """
-    print(f"Analyzing market trends for: {drug_name} over {months_back} months", file=sys.stderr)
-    sys.stderr.flush()
-    
     loop = asyncio.get_event_loop()
     trend_analysis = await loop.run_in_executor(None, openfda_client.analyze_drug_market_trends, drug_name, months_back)
     
@@ -248,9 +224,6 @@ async def batch_drug_analysis(
     """
     Analyze multiple drugs for shortages, recalls, and risk assessment
     """
-    print(f"Starting batch analysis for {len(drug_list)} drugs", file=sys.stderr)
-    sys.stderr.flush()
-    
     if len(drug_list) > 25:
         return {
             "error": "Batch size too large. Maximum 25 drugs per batch.",
@@ -268,20 +241,5 @@ async def batch_drug_analysis(
     }
 
 if __name__ == "__main__":
-    print("Starting Enhanced MCP Medication Information Server", file=sys.stderr)
-    print("Available tools:", file=sys.stderr)
-    print("  - get_medication_profile: Complete drug info with shortage data", file=sys.stderr)
-    print("  - search_drug_shortages: Direct shortage search using openFDA", file=sys.stderr)
-    print("  - get_shortage_search_guidance: Search tips for shortages", file=sys.stderr)
-    print("  - search_drug_recalls: Recall search using openFDA", file=sys.stderr)
-    print("  - get_drug_label_only: FDA label info", file=sys.stderr)
-    print("  - analyze_drug_market_trends: Market trend analysis and risk assessment", file=sys.stderr)
-    print("  - batch_drug_analysis: Analysis for multiple drugs", file=sys.stderr)
-    print("Using openFDA endpoints:", file=sys.stderr)
-    print("  - Labels: https://api.fda.gov/drug/label.json", file=sys.stderr)
-    print("  - Shortages: https://api.fda.gov/drug/shortages.json", file=sys.stderr)
-    print("  - Recalls: https://api.fda.gov/drug/enforcement.json", file=sys.stderr)
-    print("Features: Market trend analysis and batch processing", file=sys.stderr)
-    sys.stderr.flush()
-    
+    print("mcp server starting", file=sys.stderr)
     mcp_app.run(transport='stdio')
