@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for the MCP Medication Information Server
-Run this to test your server implementation before using it with MCP
+test script for the server, run it from the root of the project.
 """
 
 import os
