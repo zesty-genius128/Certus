@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-just a demo script to show off the new mcp tools. pretend you're claude desktop for a minute.
+demo script to show off the new mcp tools
 """
 
 import asyncio
@@ -10,10 +10,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Pull in the new stuff from the enhanced server
+# new features import
 from enhanced_mcp_server import analyze_drug_market_trends, batch_drug_analysis
 
-# shows off the market trends tool. it's like, "hey, is this drug always in shortage or what?"
+# test the market trends tool
 async def demo_market_trends():
     """show the market trends analysis tool in action"""
     
@@ -50,7 +50,7 @@ async def demo_market_trends():
     except Exception as e:
         print(f" Demo failed: {e}")
 
-# for batch analysis. give it a list, see what comes back. good for hospital folks.
+# for batch analysis. give it a list, see what comes back.
 async def demo_batch_analysis():
     """show the batch drug analysis tool in action"""
     
@@ -114,7 +114,7 @@ async def demo_batch_analysis():
     except Exception as e:
         print(f" Demo failed: {e}")
 
-# just some use cases. not everything has to be super formal, right?
+# demo use cases.
 async def demo_use_cases():
     """show some real-world-ish use cases for these tools"""
     
@@ -154,7 +154,7 @@ async def demo_use_cases():
         print(f"   Tool: {use_case['tool']}")
         print(f"   Value: {use_case['value']}")
 
-# just to show how claude desktop might use these tools in a conversation. not rocket science.
+# simulate how claude desktop calls it
 async def demo_integration_examples():
     """show how these tools could fit into a claude chat"""
     
@@ -192,7 +192,7 @@ async def demo_integration_examples():
             print(f"   {step}")
         print(f"Output: {conv['output']}")
 
-# runs all the demos. if you want to see everything, run this.
+# mai to run all demos
 async def main():
     """run all the demo stuff above"""
     
