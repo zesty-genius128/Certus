@@ -36,7 +36,7 @@ async def check_drug_interactions(
     loop = asyncio.get_event_loop()
     interaction_results = await loop.run_in_executor(
         None, 
-        drug_features_client.check_drug_interactions, 
+        drug_features.check_drug_interactions, 
         drug1, 
         drug2, 
         additional_drugs
@@ -67,7 +67,7 @@ async def convert_drug_names(
     loop = asyncio.get_event_loop()
     conversion_results = await loop.run_in_executor(
         None, 
-        drug_features_client.convert_drug_names, 
+        drug_features.convert_drug_names, 
         drug_name, 
         conversion_type
     )
@@ -99,7 +99,7 @@ async def get_adverse_events(
     loop = asyncio.get_event_loop()
     adverse_event_results = await loop.run_in_executor(
         None, 
-        drug_features_client.get_adverse_events, 
+        drug_features.get_adverse_events, 
         drug_name, 
         time_period, 
         severity_filter
