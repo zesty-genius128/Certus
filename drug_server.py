@@ -1,9 +1,12 @@
-# drug_server.py - New MCP server for drug features
+#new mcp server for drug features
 import os
 from dotenv import load_dotenv
 import sys
 from typing import Dict, Any, List
 import asyncio
+
+# Add current directory to Python path to find our client module
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from mcp.server.fastmcp import FastMCP
 import drug_features
@@ -44,9 +47,9 @@ async def check_drug_interactions(
     
     return {
         "interaction_analysis": interaction_results,
-        "data_source": "RxNav Drug Interaction API",
-        "analysis_type": "Drug Safety Interaction Check",
-        "note": "Based on RxNorm database maintained by NLM"
+        "data_source": "RxNorm API (ingredient analysis)",
+        "analysis_type": "Basic Drug Safety Check",
+        "note": "Limited to ingredient comparison - consult pharmacist for comprehensive interaction checking"
     }
 
 @mcp_app.tool()
@@ -113,5 +116,5 @@ async def get_adverse_events(
     }
 
 if __name__ == "__main__":
-    print("new drug features server starting", file=sys.stderr)
+    print("drug features server starting", file=sys.stderr)
     mcp_app.run(transport='stdio')
