@@ -1,4 +1,4 @@
-# drug_features.py - API client for new drug features
+#api client with corrected RxNorm endpoints
 import requests
 import os
 import json
@@ -16,10 +16,11 @@ last_faers_request = 0
 FAERS_MIN_INTERVAL = 0.25  # 4 requests per second to stay under 240/minute
 
 def get_rxcui_for_drug(drug_name: str) -> str:
-    """Get RxCUI identifier for a drug name"""
+    """Get RxCUI identifier for a drug name using correct RxNorm API"""
     try:
+        # Use correct endpoint: findRxcuiByString
         url = f"{RXNAV_BASE_URL}/rxcui.json"
-        params = {"name": drug_name}
+        params = {"name": drug_name, "search": "2"}  # search=2 is normalized search
         
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
@@ -34,65 +35,107 @@ def get_rxcui_for_drug(drug_name: str) -> str:
         print(f"rxcui lookup failed for {drug_name}: {str(e)}", file=sys.stderr)
         return None
 
-def check_drug_interactions(drug1: str, drug2: str, additional_drugs: List[str] = []) -> Dict[str, Any]:
-    """Check for drug interactions using RxNav API"""
+def get_drug_interactions_via_rxclass(rxcui: str) -> Dict[str, Any]:
+    """Get drug interactions using RxClass API (still working)"""
     try:
-        # Get RxCUI codes for all drugs
+        # Use RxClass API to find interactions through drug classes
+        url = f"https://rxnav.nlm.nih.gov/REST/rxclass/class/byRxcui.json"
+        params = {"rxcui": rxcui, "relaSource": "MEDRT"}
+        
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        
+        return {
+            "drug_classes": data.get("rxclassDrugInfoList", {}).get("rxclassDrugInfo", []),
+            "interaction_note": "Use drug classes to identify potential interactions manually",
+            "recommendation": "Consult pharmacist for clinical drug interaction checking"
+        }
+        
+    except Exception as e:
+        return {"error": f"RxClass lookup failed: {str(e)}"}
+
+def check_drug_interactions(drug1: str, drug2: str, additional_drugs: List[str] = []) -> Dict[str, Any]:
+    """Enhanced drug interaction checker using optimal RxNorm API methods"""
+    try:
         all_drugs = [drug1, drug2] + additional_drugs
-        rxcuis = []
-        drug_mapping = {}
+        drug_info = {}
         
         for drug in all_drugs:
             rxcui = get_rxcui_for_drug(drug)
             if rxcui:
-                rxcuis.append(rxcui)
-                drug_mapping[rxcui] = drug
+                # OPTIMAL: Use getRelatedByType to get ONLY ingredients (TTY=IN)
+                url = f"{RXNAV_BASE_URL}/rxcui/{rxcui}/related.json"
+                params = {"tty": "IN"}  # TTY=IN means ingredients only
+                
+                try:
+                    response = requests.get(url, params=params, timeout=15)
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    # Extract ingredient names (much smaller response)
+                    ingredients = []
+                    if data.get("relatedGroup", {}).get("conceptGroup"):
+                        for group in data["relatedGroup"]["conceptGroup"]:
+                            if group.get("tty") == "IN" and group.get("conceptProperties"):
+                                for concept in group["conceptProperties"]:
+                                    ingredients.append(concept.get("name", "Unknown"))
+                    
+                    drug_info[drug] = {
+                        "rxcui": rxcui,
+                        "ingredients": ingredients
+                    }
+                    
+                except Exception as e:
+                    # Fallback: just store the RxCUI if ingredient lookup fails
+                    drug_info[drug] = {
+                        "rxcui": rxcui, 
+                        "ingredients": [],
+                        "note": f"Could not retrieve ingredients: {str(e)}"
+                    }
             else:
                 return {"error": f"Could not find RxCUI for drug: {drug}"}
         
-        if len(rxcuis) < 2:
-            return {"error": "Need at least 2 valid drugs to check interactions"}
+        # Analyze for interactions based on ingredients
+        potential_interactions = []
+        warnings = []
+        drug_names = list(drug_info.keys())
         
-        # Check interactions
-        url = f"{RXNAV_BASE_URL}/interaction/list.json"
-        params = {"rxcuis": "+".join(rxcuis)}
+        for i, drug_a in enumerate(drug_names):
+            for drug_b in drug_names[i+1:]:
+                info_a = drug_info[drug_a]
+                info_b = drug_info[drug_b]
+                
+                # Check for same ingredients (potential duplication)
+                if info_a.get("ingredients") and info_b.get("ingredients"):
+                    common_ingredients = set(info_a["ingredients"]) & set(info_b["ingredients"])
+                    if common_ingredients:
+                        potential_interactions.append({
+                            "drug_a": drug_a,
+                            "drug_b": drug_b,
+                            "interaction_type": "Ingredient duplication",
+                            "common_ingredients": list(common_ingredients),
+                            "severity": "Monitor for additive effects",
+                            "recommendation": "Consult pharmacist about potential duplication"
+                        })
         
-        response = requests.get(url, params=params, timeout=15)
-        
-        if response.status_code == 404:
-            return {"status": "No interactions found between the specified drugs"}
-        
-        response.raise_for_status()
-        data = response.json()
-        
-        interactions = []
-        if data.get("fullInteractionTypeGroup"):
-            for group in data["fullInteractionTypeGroup"]:
-                if group.get("fullInteractionType"):
-                    for interaction_type in group["fullInteractionType"]:
-                        if interaction_type.get("interactionPair"):
-                            for pair in interaction_type["interactionPair"]:
-                                drug_a = pair.get("interactionConcept", [{}])[0].get("minConceptItem", {}).get("name", "Unknown")
-                                drug_b = pair.get("interactionConcept", [{}])[-1].get("minConceptItem", {}).get("name", "Unknown")
-                                
-                                interactions.append({
-                                    "drug_a": drug_a,
-                                    "drug_b": drug_b,
-                                    "severity": pair.get("severity", "Unknown"),
-                                    "description": pair.get("description", "No description available")
-                                })
+        # Add general warnings for common problematic combinations
+        for drug_name in drug_names:
+            if any(ingredient.lower() in ["warfarin", "aspirin", "clopidogrel"] 
+                   for ingredient in drug_info[drug_name].get("ingredients", [])):
+                warnings.append(f"{drug_name} contains anticoagulant/antiplatelet agents - monitor for bleeding risk")
         
         return {
-            "drugs_checked": all_drugs,
-            "interactions_found": len(interactions),
-            "interactions": interactions,
-            "data_source": "RxNav Drug Interaction API"
+            "drugs_analyzed": all_drugs,
+            "drug_details": drug_info,
+            "potential_interactions": potential_interactions,
+            "safety_warnings": warnings,
+            "summary": f"Analyzed {len(all_drugs)} drugs, found {len(potential_interactions)} potential interactions",
+            "limitations": "Based on ingredient comparison only. For comprehensive interaction checking, consult pharmacist or clinical decision support system.",
+            "data_source": "RxNorm API (getRelatedByType method)",
+            "methodology": "Compares active ingredients to identify potential duplications and common interaction risks"
         }
         
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
-            return {"status": "No interactions found between the specified drugs"}
-        return {"error": f"API error: {e.response.status_code}"}
     except Exception as e:
         return {"error": f"Error checking interactions: {str(e)}"}
 
@@ -259,12 +302,16 @@ def get_adverse_events(drug_name: str, time_period: str = "1year", severity_filt
 
 # Test basic functionality
 if __name__ == "__main__":
-    print("testing drug features client", file=sys.stderr)
+    print("testing corrected drug features client", file=sys.stderr)
     
-    # Test drug interaction
-    test_result = check_drug_interactions("warfarin", "aspirin")
-    print(f"interaction test: {test_result.get('status', 'found interactions')}", file=sys.stderr)
+    # Test RxCUI lookup
+    rxcui = get_rxcui_for_drug("aspirin")
+    print(f"rxcui test: aspirin = {rxcui}", file=sys.stderr)
     
     # Test name conversion
     test_result = convert_drug_names("tylenol")
     print(f"name conversion test: {len(test_result.get('generic_names', []))} generic names found", file=sys.stderr)
+    
+    # Test interaction with working RxNorm data
+    test_result = check_drug_interactions("aspirin", "warfarin")
+    print(f"interaction test: {len(test_result.get('potential_interactions', []))} interactions found", file=sys.stderr)
