@@ -74,6 +74,10 @@ Create a `.env` file for your OpenFDA API key ***(this is not necessary but doin
 OPENFDA_API_KEY=your_api_key_here
 ```
 Get a free API key at: https://open.fda.gov/apis/authentication/
+- Run this command :
+```bash
+touch __init__.py
+```
 
 ### 3. Testing
 
