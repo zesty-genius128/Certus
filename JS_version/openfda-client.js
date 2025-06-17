@@ -1,4 +1,3 @@
-// openfda-client.js
 const OPENFDA_API_KEY = process.env.OPENFDA_API_KEY;
 const DRUG_LABEL_ENDPOINT = "https://api.fda.gov/drug/label.json";
 const DRUG_SHORTAGES_ENDPOINT = "https://api.fda.gov/drug/shortages.json";

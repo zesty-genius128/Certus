@@ -1,6 +1,3 @@
-#!/usr/bin/env node
-
-// test-client.js - Simple test script to verify the OpenFDA client functions
 import dotenv from 'dotenv';
 import { 
     fetchDrugLabelInfo,

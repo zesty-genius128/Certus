@@ -1,6 +1,3 @@
-#!/usr/bin/env node
-
-// enhanced-mcp-server.js
 import dotenv from 'dotenv';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
