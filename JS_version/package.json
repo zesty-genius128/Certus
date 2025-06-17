@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node enhanced-mcp-server.js",
     "dev": "node --inspect enhanced-mcp-server.js",
-    "test": "node test-client.js"
+    "test": "node test-client.js",
+    "test-drug-features": "node test-rx.js",
+    "start-drug-server": "node drug-server.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.4.0",
@@ -31,6 +33,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/enhanced-medication-mcp-server.git"
+    "url": "https://github.com/zesty-genius128/Certus.git"
   }
 }
