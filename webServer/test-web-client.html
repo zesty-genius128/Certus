@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certus Medication API Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+        .input-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+            color: #555;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        input, select {
+            width: 200px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .result {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 12px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #e74c3c;
+            background-color: #fdf2f2;
+            border-color: #f5c6cb;
+        }
+        .success {
+            color: #27ae60;
+            background-color: #f2f8f2;
+            border-color: #c3e6cb;
+        }
+        .loading {
+            color: #f39c12;
+        }
+        .api-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .api-section {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Certus Medication API Demo</h1>
+        <p>Test the web APIs for medication information, drug interactions, and adverse events.</p>
+        <p><strong>Make sure both servers are running:</strong></p>
+        <ul>
+            <li>Enhanced API: <code>npm run start-web</code> (Port 3000)</li>
+            <li>Drug Features API: <code>npm run start-drug-web</code> (Port 3001)</li>
+        </ul>
+    </div>
+
+    <div class="api-section">
+        <!-- Enhanced Medication API -->
+        <div class="container">
+            <h2>Enhanced Medication API</h2>
+            
+            <div class="input-group">
+                <label for="drugProfile">Drug Profile Lookup:</label>
+                <input type="text" id="drugProfile" placeholder="aspirin" value="aspirin">
+                <button onclick="getMedicationProfile()">Get Profile</button>
+            </div>
+            
+            <div class="input-group">
+                <label for="shortageSearch">Shortage Search:</label>
+                <input type="text" id="shortageSearch" placeholder="lidocaine" value="lidocaine">
+                <button onclick="searchShortages()">Search Shortages</button>
+            </div>
+            
+            <div class="input-group">
+                <label for="recallSearch">Recall Search:</label>
+                <input type="text" id="recallSearch" placeholder="ibuprofen" value="ibuprofen">
+                <button onclick="searchRecalls()">Search Recalls</button>
+            </div>
+            
+            <div id="enhancedResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Drug Features API -->
+        <div class="container">
+            <h2>Drug Features API</h2>
+            
+            <div class="input-group">
+                <label for="drug1">Drug Interactions:</label>
+                <input type="text" id="drug1" placeholder="aspirin" value="aspirin">
+                <input type="text" id="drug2" placeholder="warfarin" value="warfarin">
+                <button onclick="checkInteractions()">Check Interactions</button>
+            </div>
+            
+            <div class="input-group">
+                <label for="convertDrug">Name Conversion:</label>
+                <input type="text" id="convertDrug" placeholder="tylenol" value="tylenol">
+                <select id="conversionType">
+                    <option value="both">Both</option>
+                    <option value="generic">Generic</option>
+                    <option value="brand">Brand</option>
+                </select>
+                <button onclick="convertNames()">Convert Names</button>
+            </div>
+            
+            <div class="input-group">
+                <label for="adverseDrug">Adverse Events:</label>
+                <input type="text" id="adverseDrug" placeholder="ibuprofen" value="ibuprofen">
+                <select id="severityFilter">
+                    <option value="all">All Events</option>
+                    <option value="serious">Serious Only</option>
+                </select>
+                <button onclick="getAdverseEvents()">Get Events</button>
+            </div>
+            
+            <div id="drugFeaturesResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const ENHANCED_API = 'http://localhost:3000';
+        const DRUG_FEATURES_API = 'http://localhost:3001';
+
+        async function apiCall(url, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+                
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                
+                const response = await fetch(url, options);
+                const data = await response.json();
+                
+                return {
+                    ok: response.ok,
+                    status: response.status,
+                    data: data
+                };
+            } catch (error) {
+                return {
+                    ok: false,
+                    error: error.message
+                };
+            }
+        }
+
+        function showResult(elementId, result, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${isSuccess ? 'success' : 'error'}`;
+            element.textContent = JSON.stringify(result, null, 2);
+        }
+
+        function showLoading(elementId) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = 'result loading';
+            element.textContent = 'Loading...';
+        }
+
+        async function getMedicationProfile() {
+            const drug = document.getElementById('drugProfile').value;
+            if (!drug) return;
+            
+            showLoading('enhancedResult');
+            const result = await apiCall(`${ENHANCED_API}/medication/profile`, 'POST', {
+                drug_identifier: drug
+            });
+            
+            showResult('enhancedResult', result.data, result.ok);
+        }
+
+        async function searchShortages() {
+            const drug = document.getElementById('shortageSearch').value;
+            if (!drug) return;
+            
+            showLoading('enhancedResult');
+            const result = await apiCall(`${ENHANCED_API}/medication/shortages`, 'POST', {
+                search_term: drug
+            });
+            
+            showResult('enhancedResult', result.data, result.ok);
+        }
+
+        async function searchRecalls() {
+            const drug = document.getElementById('recallSearch').value;
+            if (!drug) return;
+            
+            showLoading('enhancedResult');
+            const result = await apiCall(`${ENHANCED_API}/medication/recalls`, 'POST', {
+                search_term: drug
+            });
+            
+            showResult('enhancedResult', result.data, result.ok);
+        }
+
+        async function checkInteractions() {
+            const drug1 = document.getElementById('drug1').value;
+            const drug2 = document.getElementById('drug2').value;
+            if (!drug1 || !drug2) return;
+            
+            showLoading('drugFeaturesResult');
+            const result = await apiCall(`${DRUG_FEATURES_API}/drug/interactions`, 'POST', {
+                drug1: drug1,
+                drug2: drug2
+            });
+            
+            showResult('drugFeaturesResult', result.data, result.ok);
+        }
+
+        async function convertNames() {
+            const drug = document.getElementById('convertDrug').value;
+            const type = document.getElementById('conversionType').value;
+            if (!drug) return;
+            
+            showLoading('drugFeaturesResult');
+            const result = await apiCall(`${DRUG_FEATURES_API}/drug/convert-names`, 'POST', {
+                drug_name: drug,
+                conversion_type: type
+            });
+            
+            showResult('drugFeaturesResult', result.data, result.ok);
+        }
+
+        async function getAdverseEvents() {
+            const drug = document.getElementById('adverseDrug').value;
+            const severity = document.getElementById('severityFilter').value;
+            if (!drug) return;
+            
+            showLoading('drugFeaturesResult');
+            const result = await apiCall(`${DRUG_FEATURES_API}/drug/adverse-events`, 'POST', {
+                drug_name: drug,
+                severity_filter: severity
+            });
+            
+            showResult('drugFeaturesResult', result.data, result.ok);
+        }
+
+        // Test server connectivity on page load
+        window.onload = async function() {
+            console.log('Testing server connectivity...');
+            
+            const enhancedHealth = await apiCall(`${ENHANCED_API}/health`);
+            const drugFeaturesHealth = await apiCall(`${DRUG_FEATURES_API}/health`);
+            
+            if (!enhancedHealth.ok) {
+                console.error('Enhanced API (port 3000) not responding:', enhancedHealth.error);
+            }
+            
+            if (!drugFeaturesHealth.ok) {
+                console.error('Drug Features API (port 3001) not responding:', drugFeaturesHealth.error);
+            }
+            
+            if (enhancedHealth.ok && drugFeaturesHealth.ok) {
+                console.log('Both APIs are responding correctly!');
+            }
+        };
+    </script>
+</body>
+</html>
