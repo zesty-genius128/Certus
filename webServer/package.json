@@ -6,7 +6,9 @@
   "main": "hosted-mcp-server.js",
   "scripts": {
     "start": "node hosted-mcp-server.js",
+    "start-simple": "node simple-mcp-server.js",
     "dev": "NODE_ENV=development nodemon hosted-mcp-server.js",
+    "dev-simple": "NODE_ENV=development nodemon simple-mcp-server.js",
     "test": "node test-client.js",
     "test-hosted": "node test-hosted-server.js",
     "test-bridge": "node test-bridge-client.js",
