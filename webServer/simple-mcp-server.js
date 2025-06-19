@@ -752,7 +752,7 @@ app.post('/mcp', async (req, res) => {
     }
 });
 
-// Root endpoint
+// Root GET endpoint (info)
 app.get('/', (req, res) => {
     res.json({
         service: 'Unified Medication Information MCP Server',
@@ -763,7 +763,7 @@ app.get('/', (req, res) => {
         authentication: 'oauth2-authless (no auth required)',
         endpoints: {
             health: '/health',
-            mcp: '/mcp (StreamableHttp)',
+            mcp: '/ and /mcp (StreamableHttp)',
             mcp_info: '/mcp/info',
             mcp_auth: '/mcp/auth',
             oauth_discovery: '/.well-known/oauth-authorization-server',
@@ -781,11 +781,151 @@ app.get('/', (req, res) => {
         ],
         usage: {
             claude_desktop: 'Add https://your-domain.railway.app as a Custom Integration',
-            inspector: 'npx @modelcontextprotocol/inspector https://your-domain.railway.app/mcp',
-            transport: 'StreamableHttp over POST /mcp',
+            inspector: 'npx @modelcontextprotocol/inspector https://your-domain.railway.app/',
+            transport: 'StreamableHttp over POST /',
             authentication: 'OAuth 2.0 (authless - no credentials required)'
         }
     });
+});
+
+// Root POST endpoint (MCP) - What Claude Desktop expects
+app.post('/', async (req, res) => {
+    console.log('Root MCP request received:', {
+        method: req.method,
+        contentType: req.get('content-type'),
+        userAgent: req.get('user-agent'),
+        authorization: req.get('authorization') ? 'present' : 'none',
+        bodyType: typeof req.body
+    });
+
+    // Set headers for StreamableHttp transport
+    res.setHeader('Content-Type', 'application/jsonl');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    try {
+        const request = req.body;
+        
+        // Handle initialize method
+        if (request.method === 'initialize') {
+            console.log('Handling MCP initialize request at root', { params: request.params });
+            const response = {
+                jsonrpc: '2.0',
+                id: request.id,
+                result: {
+                    protocolVersion: '2024-11-05',
+                    capabilities: {
+                        tools: {},
+                        prompts: {},
+                        resources: {}
+                    },
+                    serverInfo: {
+                        name: 'Unified Medication Information Server',
+                        version: '1.0.0'
+                    }
+                }
+            };
+            res.write(JSON.stringify(response) + '\n');
+            res.end();
+            return;
+        }
+
+        // Handle notifications
+        if (request.method === 'notifications/initialized') {
+            console.log('Received initialized notification at root');
+            res.end();
+            return;
+        }
+
+        // Validate JSON-RPC 2.0
+        if (!request || typeof request !== 'object') {
+            const errorResponse = {
+                jsonrpc: '2.0',
+                id: null,
+                error: { code: -32700, message: 'Parse error: Invalid JSON' }
+            };
+            res.write(JSON.stringify(errorResponse) + '\n');
+            res.end();
+            return;
+        }
+
+        if (!request.jsonrpc || request.jsonrpc !== '2.0') {
+            const errorResponse = {
+                jsonrpc: '2.0',
+                id: request.id || null,
+                error: { code: -32600, message: 'Invalid Request: Missing or invalid jsonrpc field' }
+            };
+            res.write(JSON.stringify(errorResponse) + '\n');
+            res.end();
+            return;
+        }
+
+        if (!request.method) {
+            const errorResponse = {
+                jsonrpc: '2.0',
+                id: request.id || null,
+                error: { code: -32600, message: 'Invalid Request: Missing method field' }
+            };
+            res.write(JSON.stringify(errorResponse) + '\n');
+            res.end();
+            return;
+        }
+
+        console.log(`Processing MCP method at root: ${request.method} (ID: ${request.id})`);
+
+        let result;
+        
+        if (request.method === 'tools/list') {
+            result = { tools: TOOLS };
+            console.log(`Returning ${TOOLS.length} tools from root endpoint`);
+            
+        } else if (request.method === 'tools/call') {
+            if (!request.params || !request.params.name) {
+                const errorResponse = {
+                    jsonrpc: '2.0',
+                    id: request.id,
+                    error: { code: -32602, message: 'Invalid params: tool name required' }
+                };
+                res.write(JSON.stringify(errorResponse) + '\n');
+                res.end();
+                return;
+            }
+            
+            console.log(`Calling tool from root: ${request.params.name} with args:`, request.params.arguments);
+            result = await handleToolCall(request.params.name, request.params.arguments || {});
+            
+        } else {
+            const errorResponse = {
+                jsonrpc: '2.0',
+                id: request.id || null,
+                error: { code: -32601, message: `Method not found: ${request.method}` }
+            };
+            res.write(JSON.stringify(errorResponse) + '\n');
+            res.end();
+            return;
+        }
+
+        // Return response
+        const response = {
+            jsonrpc: '2.0',
+            id: request.id,
+            result: result
+        };
+
+        console.log(`Root MCP response for ${request.method}: Success (ID: ${request.id})`);
+        res.write(JSON.stringify(response) + '\n');
+        res.end();
+        
+    } catch (error) {
+        console.error('Root MCP endpoint error:', error);
+        const errorResponse = {
+            jsonrpc: '2.0',
+            id: req.body?.id || null,
+            error: { code: -32603, message: `Internal error: ${error.message}` }
+        };
+        res.write(JSON.stringify(errorResponse) + '\n');
+        res.end();
+    }
 });
 
 // 404 handler
