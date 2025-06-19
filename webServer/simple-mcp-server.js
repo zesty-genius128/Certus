@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
-// Enhanced medication profile logic (keeping existing implementation)
+// Enhanced medication profile logic
 async function getMedicationProfileLogic(drugIdentifier, identifierType) {
     try {
         const labelInfo = await fetchDrugLabelInfo(drugIdentifier, identifierType);
@@ -111,7 +111,7 @@ async function getMedicationProfileLogic(drugIdentifier, identifierType) {
     }
 }
 
-// Define available tools (keeping existing implementation)
+// Define available tools
 const TOOLS = [
     {
         name: "get_medication_profile",
@@ -236,7 +236,7 @@ const TOOLS = [
     }
 ];
 
-// Tool call handler (keeping existing implementation)
+// Tool call handler
 async function handleToolCall(name, args) {
     try {
         switch (name) {
@@ -424,7 +424,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.get('origin') || 'none'}`);
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.get('origin') || 'none'} - UA: ${req.get('user-agent') || 'none'}`);
     next();
 });
 
@@ -439,8 +439,124 @@ app.get('/health', (req, res) => {
         uptime: process.uptime(),
         environment: process.env.NODE_ENV || 'development',
         transports: ['streamable-http', 'http-post'],
+        authentication: 'oauth2-authless',
         mcp_endpoint: '/mcp',
         tools_available: TOOLS.length
+    });
+});
+
+// OAuth 2.0 Authorization Server Metadata (RFC 8414)
+app.get('/.well-known/oauth-authorization-server', (req, res) => {
+    console.log('OAuth discovery request received');
+    const baseUrl = `https://${req.get('host')}`;
+    
+    res.json({
+        issuer: baseUrl,
+        authorization_endpoint: `${baseUrl}/oauth/authorize`,
+        token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/register`,
+        scopes_supported: ["mcp"],
+        response_types_supported: ["code"],
+        grant_types_supported: ["authorization_code"],
+        token_endpoint_auth_methods_supported: ["none"],
+        code_challenge_methods_supported: ["S256"],
+        // Indicate this is an authless server
+        authless: true,
+        require_auth: false,
+        mcp_capabilities: {
+            tools: true,
+            resources: false,
+            prompts: false
+        }
+    });
+});
+
+// Dynamic Client Registration endpoint (RFC 7591)
+app.post('/register', (req, res) => {
+    console.log('OAuth client registration request received', {
+        body: req.body,
+        userAgent: req.get('user-agent')
+    });
+    
+    // For authless servers, we accept any registration but don't require auth
+    res.json({
+        client_id: "mcp-client-" + Date.now(),
+        client_secret: "not-required-for-authless",
+        client_id_issued_at: Math.floor(Date.now() / 1000),
+        grant_types: ["authorization_code"],
+        response_types: ["code"],
+        scope: "mcp",
+        token_endpoint_auth_method: "none",
+        // Indicate no authentication required
+        require_auth: false,
+        authless: true,
+        mcp_endpoint: `https://${req.get('host')}/mcp`
+    });
+});
+
+// OAuth authorization endpoint (for completeness)
+app.get('/oauth/authorize', (req, res) => {
+    console.log('OAuth authorization request received', { query: req.query });
+    
+    // For authless servers, automatically approve
+    const { redirect_uri, state, code_challenge } = req.query;
+    
+    if (!redirect_uri) {
+        return res.status(400).json({ 
+            error: 'invalid_request', 
+            error_description: 'Missing redirect_uri' 
+        });
+    }
+    
+    // Generate a dummy authorization code
+    const code = 'mcp_auth_code_' + Date.now();
+    const redirectUrl = new URL(redirect_uri);
+    redirectUrl.searchParams.set('code', code);
+    if (state) redirectUrl.searchParams.set('state', state);
+    
+    console.log('Redirecting to:', redirectUrl.toString());
+    res.redirect(redirectUrl.toString());
+});
+
+// OAuth token endpoint
+app.post('/oauth/token', (req, res) => {
+    console.log('OAuth token request received', { body: req.body });
+    
+    // For authless servers, return a dummy token
+    res.json({
+        access_token: "mcp_no_auth_required",
+        token_type: "bearer",
+        expires_in: 3600,
+        scope: "mcp",
+        // Indicate no authentication required
+        authless: true,
+        mcp_endpoint: `https://${req.get('host')}/mcp`
+    });
+});
+
+// MCP capability discovery endpoint
+app.get('/.well-known/mcp-capabilities', (req, res) => {
+    console.log('MCP capabilities discovery request received');
+    res.json({
+        version: "2024-11-05",
+        capabilities: {
+            tools: {},
+            resources: {},
+            prompts: {}
+        },
+        server_info: {
+            name: "Unified Medication Information Server",
+            version: "1.0.0"
+        },
+        transport: "streamable-http",
+        authentication: {
+            required: false,
+            type: "none"
+        },
+        endpoints: {
+            mcp: "/mcp",
+            health: "/health"
+        }
     });
 });
 
@@ -452,6 +568,7 @@ app.get('/mcp/info', (req, res) => {
         protocol: 'mcp',
         capabilities: ['tools'],
         transports: ['streamable-http', 'http-post'],
+        authentication: 'oauth2-authless',
         tools_count: TOOLS.length,
         description: 'Comprehensive medication information including drug interactions, shortages, recalls, and adverse events',
         data_sources: [
@@ -495,13 +612,14 @@ app.post('/mcp/auth', (req, res) => {
     }
 });
 
-// StreamableHttp MCP Transport - NEW!
+// StreamableHttp MCP Transport - Main MCP endpoint
 app.post('/mcp', async (req, res) => {
     console.log('StreamableHttp MCP request received:', {
         method: req.method,
-        headers: req.headers,
-        bodyType: typeof req.body,
-        contentType: req.get('content-type')
+        contentType: req.get('content-type'),
+        userAgent: req.get('user-agent'),
+        authorization: req.get('authorization') ? 'present' : 'none',
+        bodyType: typeof req.body
     });
 
     // Set headers for StreamableHttp transport
@@ -514,7 +632,7 @@ app.post('/mcp', async (req, res) => {
         
         // Handle initialize method for MCP protocol
         if (request.method === 'initialize') {
-            console.log('Handling MCP initialize request');
+            console.log('Handling MCP initialize request', { params: request.params });
             const response = {
                 jsonrpc: '2.0',
                 id: request.id,
@@ -597,7 +715,7 @@ app.post('/mcp', async (req, res) => {
                 return;
             }
             
-            console.log(`Calling tool: ${request.params.name}`);
+            console.log(`Calling tool: ${request.params.name} with args:`, request.params.arguments);
             result = await handleToolCall(request.params.name, request.params.arguments || {});
             
         } else {
@@ -642,11 +760,16 @@ app.get('/', (req, res) => {
         description: 'Comprehensive medication information including drug interactions, shortages, recalls, and adverse events',
         deployment: IS_PRODUCTION ? 'remote' : 'local',
         transports: ['streamable-http', 'http-post'],
+        authentication: 'oauth2-authless (no auth required)',
         endpoints: {
             health: '/health',
             mcp: '/mcp (StreamableHttp)',
             mcp_info: '/mcp/info',
-            mcp_auth: '/mcp/auth'
+            mcp_auth: '/mcp/auth',
+            oauth_discovery: '/.well-known/oauth-authorization-server',
+            oauth_register: '/register',
+            oauth_authorize: '/oauth/authorize',
+            oauth_token: '/oauth/token'
         },
         tools_available: TOOLS.length,
         data_sources: [
@@ -659,18 +782,24 @@ app.get('/', (req, res) => {
         usage: {
             claude_desktop: 'Add https://your-domain.railway.app as a Custom Integration',
             inspector: 'npx @modelcontextprotocol/inspector https://your-domain.railway.app/mcp',
-            transport: 'StreamableHttp over POST /mcp'
+            transport: 'StreamableHttp over POST /mcp',
+            authentication: 'OAuth 2.0 (authless - no credentials required)'
         }
     });
 });
 
 // 404 handler
 app.use((req, res) => {
+    console.log(`404 - ${req.method} ${req.path} not found`);
     res.status(404).json({ 
         error: 'Not found',
         message: 'The requested endpoint does not exist',
-        available_endpoints: ['/', '/health', '/mcp', '/mcp/info', '/mcp/auth'],
-        note: 'MCP endpoint supports StreamableHttp transport'
+        available_endpoints: [
+            '/', '/health', '/mcp', '/mcp/info', '/mcp/auth',
+            '/.well-known/oauth-authorization-server', '/register',
+            '/oauth/authorize', '/oauth/token'
+        ],
+        note: 'MCP endpoint supports StreamableHttp transport with OAuth 2.0 discovery'
     });
 });
 
@@ -688,13 +817,15 @@ app.use((error, req, res, next) => {
 async function startServer() {
     try {
         const httpServer = app.listen(PORT, HOST, () => {
-            console.log(`Unified Medication MCP Server with StreamableHttp Transport`);
+            console.log(`Unified Medication MCP Server with OAuth Discovery & StreamableHttp`);
             console.log(`Host: ${HOST}`);
             console.log(`Port: ${PORT}`);
             console.log(`Health check: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/health`);
             console.log(`MCP endpoint: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/mcp (StreamableHttp)`);
+            console.log(`OAuth discovery: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/.well-known/oauth-authorization-server`);
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
             console.log(`Transport: StreamableHttp (JSON Lines over POST)`);
+            console.log(`Authentication: OAuth 2.0 authless (no credentials required)`);
             console.log(`Tools available: ${TOOLS.length}`);
             
             if (process.env.OPENFDA_API_KEY) {
