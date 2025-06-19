@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
-// Enhanced medication profile logic
+// Enhanced medication profile logic (keeping existing implementation)
 async function getMedicationProfileLogic(drugIdentifier, identifierType) {
     try {
         const labelInfo = await fetchDrugLabelInfo(drugIdentifier, identifierType);
@@ -111,7 +111,7 @@ async function getMedicationProfileLogic(drugIdentifier, identifierType) {
     }
 }
 
-// Define available tools
+// Define available tools (keeping existing implementation)
 const TOOLS = [
     {
         name: "get_medication_profile",
@@ -236,7 +236,7 @@ const TOOLS = [
     }
 ];
 
-// Tool call handler
+// Tool call handler (keeping existing implementation)
 async function handleToolCall(name, args) {
     try {
         switch (name) {
@@ -400,7 +400,6 @@ const app = express();
 // Enhanced CORS configuration for remote MCP
 app.use(cors({
     origin: function(origin, callback) {
-        // Allow Claude Desktop and web clients
         const allowedOrigins = [
             'https://claude.ai',
             'https://claude.anthropic.com',
@@ -408,19 +407,14 @@ app.use(cors({
             'electron://claude-desktop'
         ];
         
-        // Allow no origin (for mobile apps, server-to-server requests)
         if (!origin) return callback(null, true);
-        
-        // Allow all origins in development, specific origins in production
         if (!IS_PRODUCTION || allowedOrigins.includes(origin) || origin.includes('localhost')) {
             return callback(null, true);
         }
-        
-        // Allow all for now during testing
-        return callback(null, true);
+        return callback(null, true); // Allow all for now
     },
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'User-Agent', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'User-Agent', 'X-Requested-With', 'Cache-Control'],
     credentials: true,
     optionsSuccessStatus: 200
 }));
@@ -434,37 +428,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// MCP-specific middleware for authentication and headers
-app.use('/mcp', (req, res, next) => {
-    // Log incoming MCP requests for debugging
-    console.log('MCP Request:', {
-        method: req.method,
-        path: req.path,
-        headers: {
-            authorization: req.headers.authorization ? `Bearer ${req.headers.authorization.substring(0, 10)}...` : 'None',
-            'content-type': req.headers['content-type'],
-            'user-agent': req.headers['user-agent'],
-            origin: req.headers.origin
-        },
-        bodySize: req.body ? JSON.stringify(req.body).length : 0
-    });
-
-    // Set comprehensive CORS headers
-    res.header('Access-Control-Allow-Origin', req.get('origin') || '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, User-Agent, X-Requested-With');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Max-Age', '86400'); // 24 hours
-
-    // Handle preflight OPTIONS request
-    if (req.method === 'OPTIONS') {
-        console.log('Handling CORS preflight request');
-        return res.status(200).end();
-    }
-
-    next();
-});
-
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ 
@@ -475,18 +438,20 @@ app.get('/health', (req, res) => {
         deployment: IS_PRODUCTION ? 'remote' : 'local',
         uptime: process.uptime(),
         environment: process.env.NODE_ENV || 'development',
+        transports: ['streamable-http', 'http-post'],
         mcp_endpoint: '/mcp',
         tools_available: TOOLS.length
     });
 });
 
-// MCP server info endpoint (some Claude implementations expect this)
+// MCP server info endpoint
 app.get('/mcp/info', (req, res) => {
     res.json({
         name: 'Unified Medication Information Server',
         version: '1.0.0',
         protocol: 'mcp',
         capabilities: ['tools'],
+        transports: ['streamable-http', 'http-post'],
         tools_count: TOOLS.length,
         description: 'Comprehensive medication information including drug interactions, shortages, recalls, and adverse events',
         data_sources: [
@@ -499,7 +464,7 @@ app.get('/mcp/info', (req, res) => {
     });
 });
 
-// MCP authentication endpoint (some implementations require this)
+// MCP authentication endpoint
 app.post('/mcp/auth', (req, res) => {
     console.log('MCP Authentication request received');
     
@@ -530,43 +495,86 @@ app.post('/mcp/auth', (req, res) => {
     }
 });
 
-// Main MCP endpoint
+// StreamableHttp MCP Transport - NEW!
 app.post('/mcp', async (req, res) => {
+    console.log('StreamableHttp MCP request received:', {
+        method: req.method,
+        headers: req.headers,
+        bodyType: typeof req.body,
+        contentType: req.get('content-type')
+    });
+
+    // Set headers for StreamableHttp transport
+    res.setHeader('Content-Type', 'application/jsonl'); // JSON Lines format
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
     try {
         const request = req.body;
         
+        // Handle initialize method for MCP protocol
+        if (request.method === 'initialize') {
+            console.log('Handling MCP initialize request');
+            const response = {
+                jsonrpc: '2.0',
+                id: request.id,
+                result: {
+                    protocolVersion: '2024-11-05',
+                    capabilities: {
+                        tools: {},
+                        prompts: {},
+                        resources: {}
+                    },
+                    serverInfo: {
+                        name: 'Unified Medication Information Server',
+                        version: '1.0.0'
+                    }
+                }
+            };
+            res.write(JSON.stringify(response) + '\n');
+            res.end();
+            return;
+        }
+
+        // Handle notifications (no response needed)
+        if (request.method === 'notifications/initialized') {
+            console.log('Received initialized notification');
+            res.end();
+            return;
+        }
+
         // Validate JSON-RPC 2.0 format
         if (!request || typeof request !== 'object') {
-            return res.status(400).json({
+            const errorResponse = {
                 jsonrpc: '2.0',
                 id: null,
-                error: { 
-                    code: -32700, 
-                    message: 'Parse error: Invalid JSON' 
-                }
-            });
+                error: { code: -32700, message: 'Parse error: Invalid JSON' }
+            };
+            res.write(JSON.stringify(errorResponse) + '\n');
+            res.end();
+            return;
         }
 
         if (!request.jsonrpc || request.jsonrpc !== '2.0') {
-            return res.status(400).json({
+            const errorResponse = {
                 jsonrpc: '2.0',
                 id: request.id || null,
-                error: { 
-                    code: -32600, 
-                    message: 'Invalid Request: Missing or invalid jsonrpc field' 
-                }
-            });
+                error: { code: -32600, message: 'Invalid Request: Missing or invalid jsonrpc field' }
+            };
+            res.write(JSON.stringify(errorResponse) + '\n');
+            res.end();
+            return;
         }
 
         if (!request.method) {
-            return res.status(400).json({
+            const errorResponse = {
                 jsonrpc: '2.0',
                 id: request.id || null,
-                error: { 
-                    code: -32600, 
-                    message: 'Invalid Request: Missing method field' 
-                }
-            });
+                error: { code: -32600, message: 'Invalid Request: Missing method field' }
+            };
+            res.write(JSON.stringify(errorResponse) + '\n');
+            res.end();
+            return;
         }
 
         console.log(`Processing MCP method: ${request.method} (ID: ${request.id})`);
@@ -579,31 +587,31 @@ app.post('/mcp', async (req, res) => {
             
         } else if (request.method === 'tools/call') {
             if (!request.params || !request.params.name) {
-                return res.status(400).json({
+                const errorResponse = {
                     jsonrpc: '2.0',
                     id: request.id,
-                    error: { 
-                        code: -32602, 
-                        message: 'Invalid params: tool name required' 
-                    }
-                });
+                    error: { code: -32602, message: 'Invalid params: tool name required' }
+                };
+                res.write(JSON.stringify(errorResponse) + '\n');
+                res.end();
+                return;
             }
             
             console.log(`Calling tool: ${request.params.name}`);
             result = await handleToolCall(request.params.name, request.params.arguments || {});
             
         } else {
-            return res.status(400).json({
+            const errorResponse = {
                 jsonrpc: '2.0',
                 id: request.id || null,
-                error: { 
-                    code: -32601, 
-                    message: `Method not found: ${request.method}` 
-                }
-            });
+                error: { code: -32601, message: `Method not found: ${request.method}` }
+            };
+            res.write(JSON.stringify(errorResponse) + '\n');
+            res.end();
+            return;
         }
 
-        // Always return proper JSON-RPC 2.0 response
+        // Return proper JSON-RPC 2.0 response using StreamableHttp format
         const response = {
             jsonrpc: '2.0',
             id: request.id,
@@ -611,18 +619,18 @@ app.post('/mcp', async (req, res) => {
         };
 
         console.log(`MCP response for ${request.method}: Success (ID: ${request.id})`);
-        res.json(response);
+        res.write(JSON.stringify(response) + '\n');
+        res.end();
         
     } catch (error) {
         console.error('MCP endpoint error:', error);
-        res.status(500).json({
+        const errorResponse = {
             jsonrpc: '2.0',
             id: req.body?.id || null,
-            error: { 
-                code: -32603, 
-                message: `Internal error: ${error.message}` 
-            }
-        });
+            error: { code: -32603, message: `Internal error: ${error.message}` }
+        };
+        res.write(JSON.stringify(errorResponse) + '\n');
+        res.end();
     }
 });
 
@@ -633,9 +641,10 @@ app.get('/', (req, res) => {
         version: '1.0.0',
         description: 'Comprehensive medication information including drug interactions, shortages, recalls, and adverse events',
         deployment: IS_PRODUCTION ? 'remote' : 'local',
+        transports: ['streamable-http', 'http-post'],
         endpoints: {
             health: '/health',
-            mcp: '/mcp',
+            mcp: '/mcp (StreamableHttp)',
             mcp_info: '/mcp/info',
             mcp_auth: '/mcp/auth'
         },
@@ -649,7 +658,8 @@ app.get('/', (req, res) => {
         ],
         usage: {
             claude_desktop: 'Add https://your-domain.railway.app as a Custom Integration',
-            api_access: 'POST to /mcp with JSON-RPC 2.0 format'
+            inspector: 'npx @modelcontextprotocol/inspector https://your-domain.railway.app/mcp',
+            transport: 'StreamableHttp over POST /mcp'
         }
     });
 });
@@ -659,7 +669,8 @@ app.use((req, res) => {
     res.status(404).json({ 
         error: 'Not found',
         message: 'The requested endpoint does not exist',
-        available_endpoints: ['/', '/health', '/mcp', '/mcp/info', '/mcp/auth']
+        available_endpoints: ['/', '/health', '/mcp', '/mcp/info', '/mcp/auth'],
+        note: 'MCP endpoint supports StreamableHttp transport'
     });
 });
 
@@ -677,13 +688,13 @@ app.use((error, req, res, next) => {
 async function startServer() {
     try {
         const httpServer = app.listen(PORT, HOST, () => {
-            console.log(`Unified Medication MCP Server started successfully`);
+            console.log(`Unified Medication MCP Server with StreamableHttp Transport`);
             console.log(`Host: ${HOST}`);
             console.log(`Port: ${PORT}`);
             console.log(`Health check: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/health`);
-            console.log(`MCP endpoint: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/mcp`);
+            console.log(`MCP endpoint: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/mcp (StreamableHttp)`);
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`CORS Origin: ${process.env.CORS_ORIGIN || 'permissive'}`);
+            console.log(`Transport: StreamableHttp (JSON Lines over POST)`);
             console.log(`Tools available: ${TOOLS.length}`);
             
             if (process.env.OPENFDA_API_KEY) {
@@ -694,9 +705,10 @@ async function startServer() {
             
             console.log('\nFor Claude Desktop integration:');
             console.log('Add Custom Integration with URL: https://your-railway-app.up.railway.app');
+            console.log('\nFor testing:');
+            console.log('npx @modelcontextprotocol/inspector https://your-railway-app.up.railway.app/mcp');
         });
 
-        // Handle server errors
         httpServer.on('error', (error) => {
             console.error('Server failed to start:', error);
             process.exit(1);
