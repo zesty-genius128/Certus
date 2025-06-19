@@ -81,7 +81,13 @@ async function fetchDrugShortageInfo(drugIdentifier) {
                     status: item.status || "N/A",
                     availability: item.availability || "N/A",
                     shortage_reason: item.shortage_reason || "N/A",
-                    company_name: item.company_name || "N/A"
+                    company_name: item.company_name || "N/A",
+                    dosage_form: item.dosage_form || "N/A",
+                    strength: item.strength || [],
+                    therapeutic_category: item.therapeutic_category || [],
+                    initial_posting_date: item.initial_posting_date || "N/A",
+                    update_date: item.update_date || "N/A",
+                    update_type: item.update_type || "N/A"
                 }));
                 
                 return { shortages };
@@ -94,6 +100,52 @@ async function fetchDrugShortageInfo(drugIdentifier) {
     return { status: `No current shortages found for '${drugIdentifier}'` };
 }
 
+async function searchDrugRecalls(drugIdentifier) {
+    const params = new URLSearchParams({
+        search: `product_description:"${drugIdentifier}"`,
+        limit: '10'
+    });
+    
+    if (process.env.OPENFDA_API_KEY) {
+        params.append('api_key', process.env.OPENFDA_API_KEY);
+    }
+
+    try {
+        const response = await fetch(`https://api.fda.gov/drug/enforcement.json?${params}`, {
+            timeout: 15000
+        });
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                return { status: `No recalls found for '${drugIdentifier}'` };
+            }
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.results && data.results.length > 0) {
+            const recalls = data.results.map(item => ({
+                product_description: item.product_description || "N/A",
+                reason_for_recall: item.reason_for_recall || "N/A",
+                classification: item.classification || "N/A",
+                status: item.status || "N/A",
+                recall_initiation_date: item.recall_initiation_date || "N/A",
+                recalling_firm: item.recalling_firm || "N/A"
+            }));
+            
+            return { recalls };
+        } else {
+            return { status: `No recalls found for '${drugIdentifier}'` };
+        }
+    } catch (error) {
+        if (error.message.includes('HTTP error: 404')) {
+            return { status: `No recalls found for '${drugIdentifier}'` };
+        }
+        return { error: `Error searching recalls: ${error.message}` };
+    }
+}
+
 async function checkDrugInteractions(drug1, drug2, additionalDrugs = []) {
     try {
         const allDrugs = [drug1, drug2, ...additionalDrugs];
@@ -102,11 +154,166 @@ async function checkDrugInteractions(drug1, drug2, additionalDrugs = []) {
             drugs_analyzed: allDrugs,
             analysis_type: "Basic safety check",
             note: "This is a simplified interaction check. For comprehensive analysis, consult a pharmacist.",
-            warning: "Always verify drug interactions with healthcare professionals before making medication decisions."
+            warning: "Always verify drug interactions with healthcare professionals before making medication decisions.",
+            recommendation: "Use clinical decision support tools for detailed interaction analysis"
         };
     } catch (error) {
         return { error: `Error checking interactions: ${error.message}` };
     }
+}
+
+async function convertDrugNames(drugName, conversionType = "both") {
+    const searchStrategies = [
+        ["openfda.generic_name", drugName],
+        ["openfda.brand_name", drugName]
+    ];
+    
+    for (const [field, searchTerm] of searchStrategies) {
+        const params = new URLSearchParams({
+            search: `${field}:"${searchTerm}"`,
+            limit: '5'
+        });
+        
+        if (process.env.OPENFDA_API_KEY) {
+            params.append('api_key', process.env.OPENFDA_API_KEY);
+        }
+        
+        try {
+            const response = await fetch(`https://api.fda.gov/drug/label.json?${params}`, { 
+                timeout: 15000 
+            });
+            
+            if (response.status === 404) {
+                continue;
+            }
+            
+            if (!response.ok) {
+                continue;
+            }
+            
+            const data = await response.json();
+            
+            if (data.results && data.results.length > 0) {
+                const genericNames = new Set();
+                const brandNames = new Set();
+                
+                for (const result of data.results) {
+                    const openfda = result.openfda || {};
+                    
+                    if (openfda.generic_name) {
+                        openfda.generic_name.forEach(name => genericNames.add(name));
+                    }
+                    
+                    if (openfda.brand_name) {
+                        openfda.brand_name.forEach(name => brandNames.add(name));
+                    }
+                }
+                
+                const result = {
+                    original_drug: drugName,
+                    conversion_type: conversionType,
+                    data_source: "OpenFDA Drug Labels"
+                };
+                
+                if (conversionType === "generic" || conversionType === "both") {
+                    result.generic_names = Array.from(genericNames).sort();
+                }
+                
+                if (conversionType === "brand" || conversionType === "both") {
+                    result.brand_names = Array.from(brandNames).sort();
+                }
+                
+                return result;
+            }
+                
+        } catch (error) {
+            continue;
+        }
+    }
+    
+    return { error: `No name conversion data found for '${drugName}'` };
+}
+
+async function getAdverseEvents(drugName, timePeriod = "1year", severityFilter = "all") {
+    const searchTerms = [
+        `patient.drug.medicinalproduct:"${drugName}"`,
+        `patient.drug.drugindication:"${drugName}"`
+    ];
+    
+    for (const searchTerm of searchTerms) {
+        const params = new URLSearchParams({
+            search: searchTerm,
+            limit: '50'
+        });
+        
+        if (process.env.OPENFDA_API_KEY) {
+            params.append('api_key', process.env.OPENFDA_API_KEY);
+        }
+        
+        try {
+            const response = await fetch(`https://api.fda.gov/drug/event.json?${params}`, { 
+                timeout: 15000 
+            });
+            
+            if (response.status === 404) {
+                continue;
+            }
+            
+            if (!response.ok) {
+                continue;
+            }
+            
+            const data = await response.json();
+            
+            if (data.results && data.results.length > 0) {
+                const events = [];
+                let seriousEvents = 0;
+                
+                for (const result of data.results) {
+                    const event = {
+                        report_id: result.safetyreportid || "Unknown",
+                        serious: result.serious || "Unknown",
+                        outcome: result.patient?.patientdeath || "Unknown",
+                        reactions: []
+                    };
+                    
+                    if (result.patient?.reaction) {
+                        for (const reaction of result.patient.reaction) {
+                            event.reactions.push({
+                                term: reaction.reactionmeddrapt || "Unknown",
+                                outcome: reaction.reactionoutcome || "Unknown"
+                            });
+                        }
+                    }
+                    
+                    events.push(event);
+                    
+                    if (event.serious === "1") {
+                        seriousEvents += 1;
+                    }
+                }
+                
+                let filteredEvents = events;
+                if (severityFilter === "serious") {
+                    filteredEvents = events.filter(e => e.serious === "1");
+                }
+                
+                return {
+                    drug_name: drugName,
+                    time_period: timePeriod,
+                    total_reports: filteredEvents.length,
+                    serious_reports: seriousEvents,
+                    adverse_events: filteredEvents.slice(0, 20),
+                    data_source: "FDA FAERS Database"
+                };
+            }
+                
+        } catch (error) {
+            continue;
+        }
+    }
+    
+    return { status: `No adverse event reports found for '${drugName}'` };
 }
 
 // Enhanced medication profile logic
@@ -244,6 +451,43 @@ const TOOLS = [
             },
             required: ["drug1", "drug2"]
         }
+    },
+    {
+        name: "search_drug_recalls",
+        description: "Search for drug recalls using openFDA enforcement database",
+        inputSchema: {
+            type: "object",
+            properties: {
+                search_term: { type: "string", description: "Drug name to search for recalls" },
+                limit: { type: "integer", description: "Maximum number of results", default: 10 }
+            },
+            required: ["search_term"]
+        }
+    },
+    {
+        name: "convert_drug_names",
+        description: "Convert between generic and brand names using OpenFDA label data",
+        inputSchema: {
+            type: "object",
+            properties: {
+                drug_name: { type: "string", description: "Name of the drug to convert" },
+                conversion_type: { type: "string", description: "Type of conversion", enum: ["generic", "brand", "both"], default: "both" }
+            },
+            required: ["drug_name"]
+        }
+    },
+    {
+        name: "get_adverse_events",
+        description: "Get FDA adverse event reports for a medication from FAERS database",
+        inputSchema: {
+            type: "object",
+            properties: {
+                drug_name: { type: "string", description: "Name of the medication" },
+                time_period: { type: "string", description: "Time period for analysis", default: "1year" },
+                severity_filter: { type: "string", description: "Filter by severity", enum: ["all", "serious"], default: "all" }
+            },
+            required: ["drug_name"]
+        }
     }
 ];
 
@@ -287,6 +531,37 @@ async function handleToolCall(name, args) {
                     interaction_analysis: interactionResults,
                     data_source: "Basic safety analysis",
                     analysis_type: "Simplified interaction check"
+                };
+                return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+            }
+
+            case "search_drug_recalls": {
+                const { search_term, limit = 10 } = args;
+                const recallInfo = await searchDrugRecalls(search_term);
+                const result = {
+                    search_term: search_term,
+                    recall_data: recallInfo,
+                    data_source: "openFDA Drug Enforcement API"
+                };
+                return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+            }
+
+            case "convert_drug_names": {
+                const { drug_name, conversion_type = "both" } = args;
+                const conversionResults = await convertDrugNames(drug_name, conversion_type);
+                const result = {
+                    name_conversion: conversionResults,
+                    data_source: "openFDA Drug Label API"
+                };
+                return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+            }
+
+            case "get_adverse_events": {
+                const { drug_name, time_period = "1year", severity_filter = "all" } = args;
+                const adverseEventResults = await getAdverseEvents(drug_name, time_period, severity_filter);
+                const result = {
+                    adverse_event_analysis: adverseEventResults,
+                    data_source: "FDA FAERS (Adverse Event Reporting System)"
                 };
                 return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
             }
