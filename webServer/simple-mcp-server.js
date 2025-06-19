@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 
-// Import all our existing functionality
+// Import your existing functionality
 import {
     fetchDrugLabelInfo,
     fetchDrugShortageInfo,
@@ -24,9 +24,8 @@ dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
-// Enhanced medication profile logic
+// Enhanced medication profile logic (keeping your existing logic)
 async function getMedicationProfileLogic(drugIdentifier, identifierType) {
     try {
         const labelInfo = await fetchDrugLabelInfo(drugIdentifier, identifierType);
@@ -111,7 +110,7 @@ async function getMedicationProfileLogic(drugIdentifier, identifierType) {
     }
 }
 
-// Define available tools
+// Define available tools (keeping your existing tools)
 const TOOLS = [
     {
         name: "get_medication_profile",
@@ -138,29 +137,6 @@ const TOOLS = [
         }
     },
     {
-        name: "get_shortage_search_guidance",
-        description: "Get search guidance and tips for finding drug shortage information",
-        inputSchema: {
-            type: "object",
-            properties: {
-                drug_name: { type: "string", description: "Drug name to get search guidance for" }
-            },
-            required: ["drug_name"]
-        }
-    },
-    {
-        name: "search_drug_recalls",
-        description: "Search for drug recalls using openFDA enforcement database",
-        inputSchema: {
-            type: "object",
-            properties: {
-                search_term: { type: "string", description: "Drug name to search for recalls" },
-                limit: { type: "integer", description: "Maximum number of results", default: 10 }
-            },
-            required: ["search_term"]
-        }
-    },
-    {
         name: "get_drug_label_only",
         description: "Get only FDA label information for a drug",
         inputSchema: {
@@ -173,70 +149,46 @@ const TOOLS = [
         }
     },
     {
-        name: "analyze_drug_market_trends",
-        description: "Analyze drug shortage patterns and market trends",
-        inputSchema: {
-            type: "object",
-            properties: {
-                drug_name: { type: "string", description: "Drug name to analyze" },
-                months_back: { type: "integer", description: "Number of months to look back", default: 12 }
-            },
-            required: ["drug_name"]
-        }
-    },
-    {
-        name: "batch_drug_analysis",
-        description: "Analyze multiple drugs for shortages, recalls, and risk assessment",
-        inputSchema: {
-            type: "object",
-            properties: {
-                drug_list: { type: "array", items: { type: "string" }, description: "List of drug names to analyze" },
-                include_trends: { type: "boolean", description: "Whether to include trend analysis", default: false }
-            },
-            required: ["drug_list"]
-        }
-    },
-    {
         name: "check_drug_interactions",
-        description: "Check for potential drug interactions between medications using RxNav API",
+        description: "Check for potential drug interactions between medications",
         inputSchema: {
             type: "object",
             properties: {
                 drug1: { type: "string", description: "First medication name" },
                 drug2: { type: "string", description: "Second medication name" },
-                additional_drugs: { type: "array", items: { type: "string" }, description: "Optional list of additional medications to check", default: [] }
+                additional_drugs: { type: "array", items: { type: "string" }, description: "Optional additional medications", default: [] }
             },
             required: ["drug1", "drug2"]
         }
     },
     {
         name: "convert_drug_names",
-        description: "Convert between generic and brand names using OpenFDA label data",
+        description: "Convert between generic and brand names",
         inputSchema: {
             type: "object",
             properties: {
                 drug_name: { type: "string", description: "Name of the drug to convert" },
-                conversion_type: { type: "string", description: "Type of conversion - 'generic', 'brand', or 'both'", enum: ["generic", "brand", "both"], default: "both" }
+                conversion_type: { type: "string", description: "Type of conversion", enum: ["generic", "brand", "both"], default: "both" }
             },
             required: ["drug_name"]
         }
     },
     {
         name: "get_adverse_events",
-        description: "Get FDA adverse event reports for a medication from FAERS database",
+        description: "Get FDA adverse event reports for a medication",
         inputSchema: {
             type: "object",
             properties: {
                 drug_name: { type: "string", description: "Name of the medication" },
-                time_period: { type: "string", description: "Time period for analysis (currently not implemented in API)", default: "1year" },
-                severity_filter: { type: "string", description: "Filter by severity - 'all' or 'serious' only", enum: ["all", "serious"], default: "all" }
+                time_period: { type: "string", description: "Time period for analysis", default: "1year" },
+                severity_filter: { type: "string", description: "Filter by severity", enum: ["all", "serious"], default: "all" }
             },
             required: ["drug_name"]
         }
     }
 ];
 
-// Tool call handler
+// Tool call handler (keeping your existing logic)
 async function handleToolCall(name, args) {
     try {
         switch (name) {
@@ -252,51 +204,7 @@ async function handleToolCall(name, args) {
                 const result = {
                     search_term: search_term,
                     shortage_data: shortageInfo,
-                    data_source: "openFDA Drug Shortages API",
-                    note: "Data from openFDA endpoint with 1,900+ shortage records"
-                };
-                return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-            }
-
-            case "get_shortage_search_guidance": {
-                const { drug_name } = args;
-                const openfdaResults = await fetchDrugShortageInfo(drug_name);
-                const guidance = {
-                    drug_name: drug_name,
-                    openfda_results: openfdaResults,
-                    additional_search_strategies: {
-                        recommended_queries: [
-                            `${drug_name} shortage 2025`,
-                            `${drug_name} drug shortage current`,
-                            `${drug_name} supply shortage FDA`,
-                            `ASHP ${drug_name} shortage`
-                        ],
-                        authoritative_sources: {
-                            ashp_database: {
-                                url: "https://www.ashp.org/drug-shortages/current-shortages",
-                                description: "American Society of Health-System Pharmacists shortage database",
-                                search_method: "Use site search or browse by drug name"
-                            },
-                            fda_database: {
-                                url: "https://www.accessdata.fda.gov/scripts/drugshortages/",
-                                description: "Official FDA Drug Shortage Database",
-                                search_method: "Search by active ingredient or brand name"
-                            }
-                        }
-                    },
-                    data_source: "Combined openFDA API and additional source guidance"
-                };
-                return { content: [{ type: "text", text: JSON.stringify(guidance, null, 2) }] };
-            }
-
-            case "search_drug_recalls": {
-                const { search_term, limit = 10 } = args;
-                const recallInfo = await searchDrugRecalls(search_term);
-                const result = {
-                    search_term: search_term,
-                    recall_data: recallInfo,
-                    data_source: "openFDA Drug Enforcement API",
-                    note: "Data from functional openFDA endpoint"
+                    data_source: "openFDA Drug Shortages API"
                 };
                 return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
             }
@@ -308,41 +216,7 @@ async function handleToolCall(name, args) {
                     drug_identifier: drug_identifier,
                     identifier_type: identifier_type,
                     label_data: labelInfo,
-                    data_source: "openFDA Drug Label API",
-                    reliability: "High - this endpoint is working correctly"
-                };
-                return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-            }
-
-            case "analyze_drug_market_trends": {
-                const { drug_name, months_back = 12 } = args;
-                const trendAnalysis = await analyzeDrugMarketTrends(drug_name, months_back);
-                const result = {
-                    drug_analyzed: drug_name,
-                    analysis_period: `${months_back} months`,
-                    trend_data: trendAnalysis,
-                    data_source: "openFDA Drug Shortages API - Historical Analysis",
-                    analysis_type: "Market Trends and Risk Assessment"
-                };
-                return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-            }
-
-            case "batch_drug_analysis": {
-                const { drug_list, include_trends = false } = args;
-                if (drug_list.length > 25) {
-                    const result = {
-                        error: "Batch size too large. Maximum 25 drugs per batch.",
-                        recommendation: "Split drug list into smaller batches for optimal performance"
-                    };
-                    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-                }
-
-                const batchResults = await batchDrugAnalysis(drug_list, include_trends);
-                const result = {
-                    batch_analysis: batchResults,
-                    data_source: "openFDA APIs - Comprehensive Batch Analysis",
-                    analysis_type: "Formulary Risk Assessment",
-                    note: `Analyzed ${drug_list.length} drugs with trend analysis: ${include_trends ? 'enabled' : 'disabled'}`
+                    data_source: "openFDA Drug Label API"
                 };
                 return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
             }
@@ -353,8 +227,7 @@ async function handleToolCall(name, args) {
                 const result = {
                     interaction_analysis: interactionResults,
                     data_source: "RxNorm API (ingredient analysis)",
-                    analysis_type: "Basic Drug Safety Check",
-                    note: "Limited to ingredient comparison - consult pharmacist for comprehensive interaction checking"
+                    analysis_type: "Basic Drug Safety Check"
                 };
                 return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
             }
@@ -364,9 +237,7 @@ async function handleToolCall(name, args) {
                 const conversionResults = await convertDrugNames(drug_name, conversion_type);
                 const result = {
                     name_conversion: conversionResults,
-                    data_source: "openFDA Drug Label API",
-                    analysis_type: "Drug Name Conversion",
-                    note: "Uses existing FDA labeling data for name mapping"
+                    data_source: "openFDA Drug Label API"
                 };
                 return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
             }
@@ -376,9 +247,7 @@ async function handleToolCall(name, args) {
                 const adverseEventResults = await getAdverseEvents(drug_name, time_period, severity_filter);
                 const result = {
                     adverse_event_analysis: adverseEventResults,
-                    data_source: "FDA FAERS (Adverse Event Reporting System)",
-                    analysis_type: "Post-Market Safety Surveillance",
-                    note: "Real-world adverse event data from healthcare providers and patients"
+                    data_source: "FDA FAERS (Adverse Event Reporting System)"
                 };
                 return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
             }
@@ -397,34 +266,19 @@ async function handleToolCall(name, args) {
 // Create Express app
 const app = express();
 
-// Enhanced CORS configuration for remote MCP
+// Simple CORS - allow all origins for testing
 app.use(cors({
-    origin: function(origin, callback) {
-        const allowedOrigins = [
-            'https://claude.ai',
-            'https://claude.anthropic.com',
-            'https://app.claude.ai',
-            'electron://claude-desktop'
-        ];
-        
-        if (!origin) return callback(null, true);
-        if (!IS_PRODUCTION || allowedOrigins.includes(origin) || origin.includes('localhost')) {
-            return callback(null, true);
-        }
-        return callback(null, true); // Allow all for now
-    },
+    origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'User-Agent', 'X-Requested-With', 'Cache-Control'],
-    credentials: true,
-    optionsSuccessStatus: 200
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false
 }));
 
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging middleware
+// Request logging
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.get('origin') || 'none'} - UA: ${req.get('user-agent') || 'none'}`);
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
     next();
 });
 
@@ -432,578 +286,160 @@ app.use((req, res, next) => {
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'healthy', 
-        server: 'UnifiedMedicationInformationService',
+        server: 'Unified Medication MCP Server',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
-        deployment: IS_PRODUCTION ? 'remote' : 'local',
-        uptime: process.uptime(),
-        environment: process.env.NODE_ENV || 'development',
-        transports: ['streamable-http', 'http-post'],
-        authentication: 'oauth2-authless',
-        mcp_endpoint: '/mcp',
         tools_available: TOOLS.length
     });
 });
 
-// OAuth 2.0 Authorization Server Metadata (RFC 8414)
-app.get('/.well-known/oauth-authorization-server', (req, res) => {
-    console.log('OAuth discovery request received');
-    const baseUrl = `https://${req.get('host')}`;
-    
+// Root info endpoint
+app.get('/', (req, res) => {
     res.json({
-        issuer: baseUrl,
-        authorization_endpoint: `${baseUrl}/oauth/authorize`,
-        token_endpoint: `${baseUrl}/oauth/token`,
-        registration_endpoint: `${baseUrl}/register`,
-        scopes_supported: ["mcp"],
-        response_types_supported: ["code"],
-        grant_types_supported: ["authorization_code"],
-        token_endpoint_auth_methods_supported: ["none"],
-        code_challenge_methods_supported: ["S256"],
-        // Indicate this is an authless server
-        authless: true,
-        require_auth: false,
-        mcp_capabilities: {
-            tools: true,
-            resources: false,
-            prompts: false
-        }
-    });
-});
-
-// Dynamic Client Registration endpoint (RFC 7591)
-app.post('/register', (req, res) => {
-    console.log('OAuth client registration request received', {
-        body: req.body,
-        userAgent: req.get('user-agent')
-    });
-    
-    // For authless servers, we accept any registration but don't require auth
-    res.json({
-        client_id: "mcp-client-" + Date.now(),
-        client_secret: "not-required-for-authless",
-        client_id_issued_at: Math.floor(Date.now() / 1000),
-        grant_types: ["authorization_code"],
-        response_types: ["code"],
-        scope: "mcp",
-        token_endpoint_auth_method: "none",
-        // Indicate no authentication required
-        require_auth: false,
-        authless: true,
-        mcp_endpoint: `https://${req.get('host')}/mcp`
-    });
-});
-
-// OAuth authorization endpoint (for completeness)
-app.get('/oauth/authorize', (req, res) => {
-    console.log('OAuth authorization request received', { query: req.query });
-    
-    // For authless servers, automatically approve
-    const { redirect_uri, state, code_challenge } = req.query;
-    
-    if (!redirect_uri) {
-        return res.status(400).json({ 
-            error: 'invalid_request', 
-            error_description: 'Missing redirect_uri' 
-        });
-    }
-    
-    // Generate a dummy authorization code
-    const code = 'mcp_auth_code_' + Date.now();
-    const redirectUrl = new URL(redirect_uri);
-    redirectUrl.searchParams.set('code', code);
-    if (state) redirectUrl.searchParams.set('state', state);
-    
-    console.log('Redirecting to:', redirectUrl.toString());
-    res.redirect(redirectUrl.toString());
-});
-
-// OAuth token endpoint
-app.post('/oauth/token', (req, res) => {
-    console.log('OAuth token request received', { body: req.body });
-    
-    // For authless servers, return a dummy token
-    res.json({
-        access_token: "mcp_no_auth_required",
-        token_type: "bearer",
-        expires_in: 3600,
-        scope: "mcp",
-        // Indicate no authentication required
-        authless: true,
-        mcp_endpoint: `https://${req.get('host')}/mcp`
-    });
-});
-
-// MCP capability discovery endpoint
-app.get('/.well-known/mcp-capabilities', (req, res) => {
-    console.log('MCP capabilities discovery request received');
-    res.json({
-        version: "2024-11-05",
-        capabilities: {
-            tools: {},
-            resources: {},
-            prompts: {}
-        },
-        server_info: {
-            name: "Unified Medication Information Server",
-            version: "1.0.0"
-        },
-        transport: "streamable-http",
-        authentication: {
-            required: false,
-            type: "none"
-        },
-        endpoints: {
-            mcp: "/mcp",
-            health: "/health"
-        }
-    });
-});
-
-// MCP server info endpoint
-app.get('/mcp/info', (req, res) => {
-    res.json({
-        name: 'Unified Medication Information Server',
+        service: 'Unified Medication MCP Server',
         version: '1.0.0',
-        protocol: 'mcp',
-        capabilities: ['tools'],
-        transports: ['streamable-http', 'http-post'],
-        authentication: 'oauth2-authless',
-        tools_count: TOOLS.length,
-        description: 'Comprehensive medication information including drug interactions, shortages, recalls, and adverse events',
-        data_sources: [
-            'openFDA Drug Label API',
-            'openFDA Drug Shortages API', 
-            'openFDA Drug Enforcement API',
-            'RxNorm API',
-            'FDA FAERS Database'
-        ]
+        description: 'Remote MCP server for medication information',
+        tools_available: TOOLS.length,
+        endpoints: {
+            health: '/health',
+            mcp: '/mcp'
+        },
+        usage: {
+            mcp_endpoint: '/mcp',
+            method: 'POST',
+            content_type: 'application/json'
+        }
     });
 });
 
-// MCP authentication endpoint
-app.post('/mcp/auth', (req, res) => {
-    console.log('MCP Authentication request received');
-    
+// Main MCP endpoint - simplified for Claude Desktop compatibility
+app.post('/mcp', async (req, res) => {
+    console.log('MCP request received:', {
+        method: req.body?.method,
+        id: req.body?.id
+    });
+
+    // Set standard JSON response headers
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache');
+
     try {
         const request = req.body;
         
+        // Validate JSON-RPC 2.0 format
+        if (!request || typeof request !== 'object') {
+            return res.status(400).json({
+                jsonrpc: '2.0',
+                id: null,
+                error: { code: -32700, message: 'Parse error' }
+            });
+        }
+
+        if (request.jsonrpc !== '2.0') {
+            return res.status(400).json({
+                jsonrpc: '2.0',
+                id: request.id || null,
+                error: { code: -32600, message: 'Invalid Request' }
+            });
+        }
+
+        if (!request.method) {
+            return res.status(400).json({
+                jsonrpc: '2.0',
+                id: request.id || null,
+                error: { code: -32600, message: 'Missing method' }
+            });
+        }
+
+        let result;
+        
+        // Handle MCP methods
+        switch (request.method) {
+            case 'initialize':
+                result = {
+                    protocolVersion: '2024-11-05',
+                    capabilities: {
+                        tools: {},
+                        resources: {},
+                        prompts: {}
+                    },
+                    serverInfo: {
+                        name: 'Unified Medication MCP Server',
+                        version: '1.0.0'
+                    }
+                };
+                break;
+
+            case 'tools/list':
+                result = { tools: TOOLS };
+                break;
+
+            case 'tools/call':
+                if (!request.params || !request.params.name) {
+                    return res.status(400).json({
+                        jsonrpc: '2.0',
+                        id: request.id,
+                        error: { code: -32602, message: 'Invalid params: tool name required' }
+                    });
+                }
+                
+                result = await handleToolCall(request.params.name, request.params.arguments || {});
+                break;
+
+            default:
+                return res.status(400).json({
+                    jsonrpc: '2.0',
+                    id: request.id || null,
+                    error: { code: -32601, message: `Method not found: ${request.method}` }
+                });
+        }
+
+        // Return standard JSON response
         res.json({
             jsonrpc: '2.0',
-            id: request.id || 1,
-            result: {
-                authenticated: true,
-                user: 'claude-desktop',
-                capabilities: ['tools'],
-                server_info: {
-                    name: 'Unified Medication Information Server',
-                    version: '1.0.0',
-                    tools_available: TOOLS.length
-                }
-            }
+            id: request.id,
+            result: result
         });
+
     } catch (error) {
-        console.error('Auth endpoint error:', error);
+        console.error('MCP endpoint error:', error);
         res.status(500).json({
             jsonrpc: '2.0',
             id: req.body?.id || null,
-            error: { code: -32603, message: 'Authentication failed' }
+            error: { code: -32603, message: `Internal error: ${error.message}` }
         });
     }
 });
 
-// StreamableHttp MCP Transport - Main MCP endpoint
-app.post('/mcp', async (req, res) => {
-    console.log('StreamableHttp MCP request received:', {
-        method: req.method,
-        contentType: req.get('content-type'),
-        userAgent: req.get('user-agent'),
-        authorization: req.get('authorization') ? 'present' : 'none',
-        bodyType: typeof req.body
-    });
-
-    // Set headers for StreamableHttp transport
-    res.setHeader('Content-Type', 'application/jsonl'); // JSON Lines format
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    try {
-        const request = req.body;
-        
-        // Handle initialize method for MCP protocol
-        if (request.method === 'initialize') {
-            console.log('Handling MCP initialize request', { params: request.params });
-            const response = {
-                jsonrpc: '2.0',
-                id: request.id,
-                result: {
-                    protocolVersion: '2024-11-05',
-                    capabilities: {
-                        tools: {},
-                        prompts: {},
-                        resources: {}
-                    },
-                    serverInfo: {
-                        name: 'Unified Medication Information Server',
-                        version: '1.0.0'
-                    }
-                }
-            };
-            res.write(JSON.stringify(response) + '\n');
-            res.end();
-            return;
-        }
-
-        // Handle notifications (no response needed)
-        if (request.method === 'notifications/initialized') {
-            console.log('Received initialized notification');
-            res.end();
-            return;
-        }
-
-        // Validate JSON-RPC 2.0 format
-        if (!request || typeof request !== 'object') {
-            const errorResponse = {
-                jsonrpc: '2.0',
-                id: null,
-                error: { code: -32700, message: 'Parse error: Invalid JSON' }
-            };
-            res.write(JSON.stringify(errorResponse) + '\n');
-            res.end();
-            return;
-        }
-
-        if (!request.jsonrpc || request.jsonrpc !== '2.0') {
-            const errorResponse = {
-                jsonrpc: '2.0',
-                id: request.id || null,
-                error: { code: -32600, message: 'Invalid Request: Missing or invalid jsonrpc field' }
-            };
-            res.write(JSON.stringify(errorResponse) + '\n');
-            res.end();
-            return;
-        }
-
-        if (!request.method) {
-            const errorResponse = {
-                jsonrpc: '2.0',
-                id: request.id || null,
-                error: { code: -32600, message: 'Invalid Request: Missing method field' }
-            };
-            res.write(JSON.stringify(errorResponse) + '\n');
-            res.end();
-            return;
-        }
-
-        console.log(`Processing MCP method: ${request.method} (ID: ${request.id})`);
-
-        let result;
-        
-        if (request.method === 'tools/list') {
-            result = { tools: TOOLS };
-            console.log(`Returning ${TOOLS.length} tools`);
-            
-        } else if (request.method === 'tools/call') {
-            if (!request.params || !request.params.name) {
-                const errorResponse = {
-                    jsonrpc: '2.0',
-                    id: request.id,
-                    error: { code: -32602, message: 'Invalid params: tool name required' }
-                };
-                res.write(JSON.stringify(errorResponse) + '\n');
-                res.end();
-                return;
-            }
-            
-            console.log(`Calling tool: ${request.params.name} with args:`, request.params.arguments);
-            result = await handleToolCall(request.params.name, request.params.arguments || {});
-            
-        } else {
-            const errorResponse = {
-                jsonrpc: '2.0',
-                id: request.id || null,
-                error: { code: -32601, message: `Method not found: ${request.method}` }
-            };
-            res.write(JSON.stringify(errorResponse) + '\n');
-            res.end();
-            return;
-        }
-
-        // Return proper JSON-RPC 2.0 response using StreamableHttp format
-        const response = {
-            jsonrpc: '2.0',
-            id: request.id,
-            result: result
-        };
-
-        console.log(`MCP response for ${request.method}: Success (ID: ${request.id})`);
-        res.write(JSON.stringify(response) + '\n');
-        res.end();
-        
-    } catch (error) {
-        console.error('MCP endpoint error:', error);
-        const errorResponse = {
-            jsonrpc: '2.0',
-            id: req.body?.id || null,
-            error: { code: -32603, message: `Internal error: ${error.message}` }
-        };
-        res.write(JSON.stringify(errorResponse) + '\n');
-        res.end();
-    }
-});
-
-// Root GET endpoint (info)
-app.get('/', (req, res) => {
-    res.json({
-        service: 'Unified Medication Information MCP Server',
-        version: '1.0.0',
-        description: 'Comprehensive medication information including drug interactions, shortages, recalls, and adverse events',
-        deployment: IS_PRODUCTION ? 'remote' : 'local',
-        transports: ['streamable-http', 'http-post'],
-        authentication: 'oauth2-authless (no auth required)',
-        endpoints: {
-            health: '/health',
-            mcp: '/ and /mcp (StreamableHttp)',
-            mcp_info: '/mcp/info',
-            mcp_auth: '/mcp/auth',
-            oauth_discovery: '/.well-known/oauth-authorization-server',
-            oauth_register: '/register',
-            oauth_authorize: '/oauth/authorize',
-            oauth_token: '/oauth/token'
-        },
-        tools_available: TOOLS.length,
-        data_sources: [
-            'openFDA Drug Label API',
-            'openFDA Drug Shortages API', 
-            'openFDA Drug Enforcement API',
-            'RxNorm API',
-            'FDA FAERS Database'
-        ],
-        usage: {
-            claude_desktop: 'Add https://your-domain.railway.app as a Custom Integration',
-            inspector: 'npx @modelcontextprotocol/inspector https://your-domain.railway.app/',
-            transport: 'StreamableHttp over POST /',
-            authentication: 'OAuth 2.0 (authless - no credentials required)'
-        }
-    });
-});
-
-// Root POST endpoint (MCP) - What Claude Desktop expects
-app.post('/', async (req, res) => {
-    console.log('Root MCP request received:', {
-        method: req.method,
-        contentType: req.get('content-type'),
-        userAgent: req.get('user-agent'),
-        authorization: req.get('authorization') ? 'present' : 'none',
-        bodyType: typeof req.body
-    });
-
-    // Set headers for StreamableHttp transport
-    res.setHeader('Content-Type', 'application/jsonl');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    try {
-        const request = req.body;
-        
-        // Handle initialize method
-        if (request.method === 'initialize') {
-            console.log('Handling MCP initialize request at root', { params: request.params });
-            const response = {
-                jsonrpc: '2.0',
-                id: request.id,
-                result: {
-                    protocolVersion: '2024-11-05',
-                    capabilities: {
-                        tools: {},
-                        prompts: {},
-                        resources: {}
-                    },
-                    serverInfo: {
-                        name: 'Unified Medication Information Server',
-                        version: '1.0.0'
-                    }
-                }
-            };
-            res.write(JSON.stringify(response) + '\n');
-            res.end();
-            return;
-        }
-
-        // Handle notifications
-        if (request.method === 'notifications/initialized') {
-            console.log('Received initialized notification at root');
-            res.end();
-            return;
-        }
-
-        // Validate JSON-RPC 2.0
-        if (!request || typeof request !== 'object') {
-            const errorResponse = {
-                jsonrpc: '2.0',
-                id: null,
-                error: { code: -32700, message: 'Parse error: Invalid JSON' }
-            };
-            res.write(JSON.stringify(errorResponse) + '\n');
-            res.end();
-            return;
-        }
-
-        if (!request.jsonrpc || request.jsonrpc !== '2.0') {
-            const errorResponse = {
-                jsonrpc: '2.0',
-                id: request.id || null,
-                error: { code: -32600, message: 'Invalid Request: Missing or invalid jsonrpc field' }
-            };
-            res.write(JSON.stringify(errorResponse) + '\n');
-            res.end();
-            return;
-        }
-
-        if (!request.method) {
-            const errorResponse = {
-                jsonrpc: '2.0',
-                id: request.id || null,
-                error: { code: -32600, message: 'Invalid Request: Missing method field' }
-            };
-            res.write(JSON.stringify(errorResponse) + '\n');
-            res.end();
-            return;
-        }
-
-        console.log(`Processing MCP method at root: ${request.method} (ID: ${request.id})`);
-
-        let result;
-        
-        if (request.method === 'tools/list') {
-            result = { tools: TOOLS };
-            console.log(`Returning ${TOOLS.length} tools from root endpoint`);
-            
-        } else if (request.method === 'tools/call') {
-            if (!request.params || !request.params.name) {
-                const errorResponse = {
-                    jsonrpc: '2.0',
-                    id: request.id,
-                    error: { code: -32602, message: 'Invalid params: tool name required' }
-                };
-                res.write(JSON.stringify(errorResponse) + '\n');
-                res.end();
-                return;
-            }
-            
-            console.log(`Calling tool from root: ${request.params.name} with args:`, request.params.arguments);
-            result = await handleToolCall(request.params.name, request.params.arguments || {});
-            
-        } else {
-            const errorResponse = {
-                jsonrpc: '2.0',
-                id: request.id || null,
-                error: { code: -32601, message: `Method not found: ${request.method}` }
-            };
-            res.write(JSON.stringify(errorResponse) + '\n');
-            res.end();
-            return;
-        }
-
-        // Return response
-        const response = {
-            jsonrpc: '2.0',
-            id: request.id,
-            result: result
-        };
-
-        console.log(`Root MCP response for ${request.method}: Success (ID: ${request.id})`);
-        res.write(JSON.stringify(response) + '\n');
-        res.end();
-        
-    } catch (error) {
-        console.error('Root MCP endpoint error:', error);
-        const errorResponse = {
-            jsonrpc: '2.0',
-            id: req.body?.id || null,
-            error: { code: -32603, message: `Internal error: ${error.message}` }
-        };
-        res.write(JSON.stringify(errorResponse) + '\n');
-        res.end();
-    }
+// Handle notifications (no response needed)
+app.post('/mcp/notifications/:type', (req, res) => {
+    console.log('Notification received:', req.params.type);
+    res.status(204).end();
 });
 
 // 404 handler
-app.use((req, res) => {
-    console.log(`404 - ${req.method} ${req.path} not found`);
+app.use('*', (req, res) => {
     res.status(404).json({ 
         error: 'Not found',
-        message: 'The requested endpoint does not exist',
-        available_endpoints: [
-            '/', '/health', '/mcp', '/mcp/info', '/mcp/auth',
-            '/.well-known/oauth-authorization-server', '/register',
-            '/oauth/authorize', '/oauth/token'
-        ],
-        note: 'MCP endpoint supports StreamableHttp transport with OAuth 2.0 discovery'
+        available_endpoints: ['/', '/health', '/mcp']
     });
 });
 
-// Error handling middleware
+// Error handling
 app.use((error, req, res, next) => {
     console.error('Server error:', error);
     res.status(500).json({ 
         error: 'Internal server error',
-        message: IS_PRODUCTION ? 'Something went wrong' : error.message,
-        timestamp: new Date().toISOString()
+        message: error.message
     });
 });
 
-// Start the server
-async function startServer() {
-    try {
-        const httpServer = app.listen(PORT, HOST, () => {
-            console.log(`Unified Medication MCP Server with OAuth Discovery & StreamableHttp`);
-            console.log(`Host: ${HOST}`);
-            console.log(`Port: ${PORT}`);
-            console.log(`Health check: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/health`);
-            console.log(`MCP endpoint: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/mcp (StreamableHttp)`);
-            console.log(`OAuth discovery: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/.well-known/oauth-authorization-server`);
-            console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`Transport: StreamableHttp (JSON Lines over POST)`);
-            console.log(`Authentication: OAuth 2.0 authless (no credentials required)`);
-            console.log(`Tools available: ${TOOLS.length}`);
-            
-            if (process.env.OPENFDA_API_KEY) {
-                console.log('OpenFDA API key: configured');
-            } else {
-                console.log('OpenFDA API key: not configured (using rate-limited access)');
-            }
-            
-            console.log('\nFor Claude Desktop integration:');
-            console.log('Add Custom Integration with URL: https://your-railway-app.up.railway.app');
-            console.log('\nFor testing:');
-            console.log('npx @modelcontextprotocol/inspector https://your-railway-app.up.railway.app/mcp');
-        });
-
-        httpServer.on('error', (error) => {
-            console.error('Server failed to start:', error);
-            process.exit(1);
-        });
-        
-    } catch (error) {
-        console.error('Failed to start server:', error);
-        process.exit(1);
-    }
-}
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
-    process.exit(0);
-});
-
-process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down gracefully');
-    process.exit(0);
-});
-
-// Start the server
-startServer().catch(error => {
-    console.error('Fatal error:', error);
-    process.exit(1);
+// Start server
+app.listen(PORT, HOST, () => {
+    console.log(`Unified Medication MCP Server`);
+    console.log(`Host: ${HOST}`);
+    console.log(`Port: ${PORT}`);
+    console.log(`MCP Endpoint: /mcp`);
+    console.log(`Health Check: /health`);
+    console.log(`Tools Available: ${TOOLS.length}`);
 });

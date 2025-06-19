@@ -1,66 +1,37 @@
 {
   "name": "unified-medication-mcp-server",
   "version": "1.0.0",
-  "description": "Hosted MCP server providing comprehensive medication information using openFDA and RxNorm APIs",
+  "description": "Remote MCP server for medication information hosted on Railway",
   "type": "module",
-  "main": "hosted-mcp-server.js",
+  "main": "simple-mcp-server.js",
   "scripts": {
     "start": "node simple-mcp-server.js",
-    "start-hosted": "node hosted-mcp-server.js",
     "dev": "NODE_ENV=development nodemon simple-mcp-server.js",
-    "dev-hosted": "NODE_ENV=development nodemon hosted-mcp-server.js",
-    "test": "node test-hosted-server.js",
-    "test-old": "node test-client.js",
-    "test-bridge": "node test-bridge-client.js",
-    "setup-claude": "node setup-claude-bridge.js",
-    "check-claude": "node setup-claude-bridge.js --check",
-    "build": "echo 'No build step required for Node.js'",
-    "docker:build": "docker build -t unified-medication-mcp .",
-    "docker:run": "docker run -p 3000:3000 --env-file .env unified-medication-mcp",
-    "docker:dev": "docker run -p 3000:3000 -v $(pwd):/app --env-file .env unified-medication-mcp npm run dev"
+    "test": "node test-railway-server.js",
+    "test-local": "SERVER_URL=http://localhost:3000 node test-railway-server.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.4.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "express": "^5.1.0",
-    "helmet": "^7.1.0",
-    "compression": "^1.7.4",
-    "morgan": "^1.10.0"
+    "express": "^5.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "nodemon": "^3.1.10",
-    "concurrently": "^9.1.2"
+    "nodemon": "^3.1.10"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "keywords": [
     "mcp",
-    "medication", 
+    "medication",
     "pharmaceutical",
     "openFDA",
-    "drug-shortage",
-    "healthcare",
-    "hosted",
-    "http",
-    "api",
-    "rxnorm",
-    "drug-interactions"
+    "claude-desktop",
+    "railway",
+    "remote-server"
   ],
   "author": "Aditya Damerla",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/zesty-genius128/Certus.git"
-  },
-  "homepage": "https://github.com/zesty-genius128/Certus#readme",
-  "bugs": {
-    "url": "https://github.com/zesty-genius128/Certus/issues"
-  },
-  "directories": {
-    "lib": "./lib",
-    "test": "./test"
-  }
+  "license": "MIT"
 }
