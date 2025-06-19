@@ -1,0 +1,36 @@
+{
+  "name": "unified-medication-mcp-server",
+  "version": "1.0.0",
+  "description": "Hosted MCP server providing comprehensive medication information using openFDA APIs",
+  "type": "module",
+  "main": "simple-mcp-server.js",
+  "scripts": {
+    "start": "node simple-mcp-server.js",
+    "dev": "NODE_ENV=development node simple-mcp-server.js",
+    "test": "node test-hosted-server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "medication", 
+    "pharmaceutical",
+    "openFDA",
+    "drug-shortage",
+    "healthcare",
+    "hosted",
+    "api"
+  ],
+  "author": "Aditya Damerla",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zesty-genius128/Certus.git"
+  }
+}

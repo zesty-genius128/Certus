@@ -34,3 +34,5 @@ __init__.py
 __init__ 2.py
 __pycache__/
 med_info_mcp_project.code-workspace
+*.example
+*.template
