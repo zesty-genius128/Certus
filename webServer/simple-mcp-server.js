@@ -607,6 +607,88 @@ app.get('/health', (req, res) => {
     });
 });
 
+// OAuth 2.0 Authorization Server Metadata (RFC 8414)
+app.get('/.well-known/oauth-authorization-server', (req, res) => {
+    console.log('OAuth discovery request received');
+    const baseUrl = `https://${req.get('host')}`;
+    
+    res.json({
+        issuer: baseUrl,
+        authorization_endpoint: `${baseUrl}/oauth/authorize`,
+        token_endpoint: `${baseUrl}/oauth/token`,
+        registration_endpoint: `${baseUrl}/register`,
+        scopes_supported: ["mcp"],
+        response_types_supported: ["code"],
+        grant_types_supported: ["authorization_code"],
+        token_endpoint_auth_methods_supported: ["none"],
+        code_challenge_methods_supported: ["S256"],
+        authless: true,
+        require_auth: false,
+        mcp_capabilities: {
+            tools: true,
+            resources: false,
+            prompts: false
+        }
+    });
+});
+
+// Dynamic Client Registration endpoint (RFC 7591)
+app.post('/register', (req, res) => {
+    console.log('OAuth client registration request received', {
+        userAgent: req.get('user-agent')
+    });
+    
+    res.json({
+        client_id: "mcp-client-" + Date.now(),
+        client_secret: "not-required-for-authless",
+        client_id_issued_at: Math.floor(Date.now() / 1000),
+        grant_types: ["authorization_code"],
+        response_types: ["code"],
+        scope: "mcp",
+        token_endpoint_auth_method: "none",
+        require_auth: false,
+        authless: true,
+        mcp_endpoint: `https://${req.get('host')}/mcp`
+    });
+});
+
+// OAuth authorization endpoint
+app.get('/oauth/authorize', (req, res) => {
+    console.log('OAuth authorization request received', { query: req.query });
+    
+    const { redirect_uri, state, code_challenge } = req.query;
+    
+    if (!redirect_uri) {
+        return res.status(400).json({ 
+            error: 'invalid_request', 
+            error_description: 'Missing redirect_uri' 
+        });
+    }
+    
+    // Generate authorization code and redirect
+    const code = 'mcp_auth_code_' + Date.now();
+    const redirectUrl = new URL(redirect_uri);
+    redirectUrl.searchParams.set('code', code);
+    if (state) redirectUrl.searchParams.set('state', state);
+    
+    console.log('Redirecting to:', redirectUrl.toString());
+    res.redirect(redirectUrl.toString());
+});
+
+// OAuth token endpoint
+app.post('/oauth/token', (req, res) => {
+    console.log('OAuth token request received');
+    
+    res.json({
+        access_token: "mcp_no_auth_required",
+        token_type: "bearer",
+        expires_in: 3600,
+        scope: "mcp",
+        authless: true,
+        mcp_endpoint: `https://${req.get('host')}/mcp`
+    });
+});
+
 // Root info endpoint
 app.get('/', (req, res) => {
     res.json({
@@ -616,8 +698,14 @@ app.get('/', (req, res) => {
         tools_available: TOOLS.length,
         endpoints: {
             health: '/health',
-            mcp: '/mcp'
-        }
+            mcp: '/mcp',
+            oauth_discovery: '/.well-known/oauth-authorization-server',
+            oauth_register: '/register',
+            oauth_authorize: '/oauth/authorize',
+            oauth_token: '/oauth/token'
+        },
+        authentication: 'OAuth 2.0 (authless)',
+        transport: 'HTTP POST'
     });
 });
 
@@ -720,7 +808,11 @@ app.post('/mcp', async (req, res) => {
 app.use('*', (req, res) => {
     res.status(404).json({ 
         error: 'Not found',
-        available_endpoints: ['/', '/health', '/mcp']
+        available_endpoints: [
+            '/', '/health', '/mcp',
+            '/.well-known/oauth-authorization-server', 
+            '/register', '/oauth/authorize', '/oauth/token'
+        ]
     });
 });
 
@@ -735,12 +827,14 @@ app.use((error, req, res, next) => {
 
 // Start server
 app.listen(PORT, HOST, () => {
-    console.log(`Unified Medication MCP Server`);
+    console.log(`Unified Medication MCP Server with OAuth Discovery`);
     console.log(`Host: ${HOST}`);
     console.log(`Port: ${PORT}`);
     console.log(`MCP Endpoint: /mcp`);
     console.log(`Health Check: /health`);
+    console.log(`OAuth Discovery: /.well-known/oauth-authorization-server`);
     console.log(`Tools Available: ${TOOLS.length}`);
+    console.log(`Authentication: OAuth 2.0 (authless)`);
     
     if (process.env.OPENFDA_API_KEY) {
         console.log('OpenFDA API key: configured');
