@@ -689,7 +689,7 @@ app.post('/oauth/token', (req, res) => {
     });
 });
 
-// Root info endpoint
+// Root endpoint - handles both GET (info) and POST (MCP)
 app.get('/', (req, res) => {
     res.json({
         service: 'Unified Medication MCP Server',
@@ -698,7 +698,7 @@ app.get('/', (req, res) => {
         tools_available: TOOLS.length,
         endpoints: {
             health: '/health',
-            mcp: '/mcp',
+            mcp: '/ (POST)',
             oauth_discovery: '/.well-known/oauth-authorization-server',
             oauth_register: '/register',
             oauth_authorize: '/oauth/authorize',
@@ -709,9 +709,104 @@ app.get('/', (req, res) => {
     });
 });
 
-// Main MCP endpoint
+// Root MCP endpoint - Claude Desktop expects MCP at root path
+app.post('/', async (req, res) => {
+    console.log('Root MCP request received:', {
+        method: req.body?.method,
+        id: req.body?.id
+    });
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache');
+
+    try {
+        const request = req.body;
+        
+        if (!request || typeof request !== 'object') {
+            return res.status(400).json({
+                jsonrpc: '2.0',
+                id: null,
+                error: { code: -32700, message: 'Parse error' }
+            });
+        }
+
+        if (request.jsonrpc !== '2.0') {
+            return res.status(400).json({
+                jsonrpc: '2.0',
+                id: request.id || null,
+                error: { code: -32600, message: 'Invalid Request' }
+            });
+        }
+
+        if (!request.method) {
+            return res.status(400).json({
+                jsonrpc: '2.0',
+                id: request.id || null,
+                error: { code: -32600, message: 'Missing method' }
+            });
+        }
+
+        let result;
+        
+        switch (request.method) {
+            case 'initialize':
+                result = {
+                    protocolVersion: '2024-11-05',
+                    capabilities: {
+                        tools: {},
+                        resources: {},
+                        prompts: {}
+                    },
+                    serverInfo: {
+                        name: 'Unified Medication MCP Server',
+                        version: '1.0.0'
+                    }
+                };
+                break;
+
+            case 'tools/list':
+                result = { tools: TOOLS };
+                break;
+
+            case 'tools/call':
+                if (!request.params || !request.params.name) {
+                    return res.status(400).json({
+                        jsonrpc: '2.0',
+                        id: request.id,
+                        error: { code: -32602, message: 'Invalid params: tool name required' }
+                    });
+                }
+                
+                result = await handleToolCall(request.params.name, request.params.arguments || {});
+                break;
+
+            default:
+                return res.status(400).json({
+                    jsonrpc: '2.0',
+                    id: request.id || null,
+                    error: { code: -32601, message: `Method not found: ${request.method}` }
+                });
+        }
+
+        res.json({
+            jsonrpc: '2.0',
+            id: request.id,
+            result: result
+        });
+
+    } catch (error) {
+        console.error('Root MCP endpoint error:', error);
+        res.status(500).json({
+            jsonrpc: '2.0',
+            id: req.body?.id || null,
+            error: { code: -32603, message: `Internal error: ${error.message}` }
+        });
+    }
+});
+
+// MCP endpoint at /mcp (for compatibility)
 app.post('/mcp', async (req, res) => {
-    console.log('MCP request received:', {
+    console.log('MCP endpoint request received:', {
         method: req.body?.method,
         id: req.body?.id
     });
@@ -830,7 +925,7 @@ app.listen(PORT, HOST, () => {
     console.log(`Unified Medication MCP Server with OAuth Discovery`);
     console.log(`Host: ${HOST}`);
     console.log(`Port: ${PORT}`);
-    console.log(`MCP Endpoint: /mcp`);
+    console.log(`MCP Endpoint: / (POST) and /mcp (POST)`);
     console.log(`Health Check: /health`);
     console.log(`OAuth Discovery: /.well-known/oauth-authorization-server`);
     console.log(`Tools Available: ${TOOLS.length}`);
